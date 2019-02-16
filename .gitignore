@@ -3,3 +3,6 @@
 
 # Output-folders from previous runs of FridgeIQ, these have a timestamp as name: YYYY-MM-DD-hh-mm-ss
 src/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]
+
+-
+nosession
