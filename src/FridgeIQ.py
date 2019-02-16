@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import copy
+import simpleaudio
 
 import matplotlib
 matplotlib.use('agg') # select a non-interactive backend. Do this before importing pyplot!
@@ -27,11 +28,14 @@ import math
 runfolder = os.path.dirname(os.path.realpath(__file__)) + '\\' + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
 os.makedirs(runfolder)
 
-onlyplotsolutions = True
+plotcandidates = False
+plotdeadends = False
+plotsolutions = True
+plotstepbystep = False
 finalpositions = 0
 
 class Part:
-
+  
   def __init__(self, name, polygon, color):
       self.name = name
       self.polygon = polygon
@@ -39,6 +43,7 @@ class Part:
       self.xoffset = 0
       self.yoffset = 0
       self.rotation = 0
+      self.candidateposition = []
 
       # build a list of distinct rotations
       self.rotations = [0]
@@ -52,44 +57,71 @@ class Part:
   def finalpolygon(self):
     return translate(rotate(self.polygon, self.rotation), self.xoffset, self.yoffset)
 
+class Puzzle:
+  # Create a list of all the parts that make up the puzzle.
+  partscatalog = [
+    Part('A', Polygon([(0, 0), (1, 0), (1, 1), (2, 1), (1, 2), (0, 2), (0, 0)]), 'red'),
+    Part('R', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (0, 1), (1, 1), (1, 0)]), 'green'),
+    Part('E', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (0, 1), (1, 1), (1, 0)]), 'blue'),
+    Part('L', Polygon([(0, 0), (2, 0), (2, 1), (3, 1), (2, 2), (1, 2), (1, 1), (0, 1), (0, 0)]), 'purple'),
+    Part('O', Polygon([(0, 0), (2, 0), (1, 1), (1, 2), (0, 2), (0, 0)]), 'yellow'),
+    Part('M', Polygon([(0, 0), (1, 0), (1, 2), (0, 1), (0, 0)]), 'red'),
+    Part('T', Polygon([(0, 0), (3, 0), (1, 2), (1, 1), (0, 1), (0, 0)]), 'green',),
+    Part('S', Polygon([(0, 0), (1, 0), (1, 3), (0, 2), (0, 0)]), 'blue'),
+    Part('Q', Polygon([(0, 0), (1, 0), (1, 2), (0, 2), (0, 0)]), 'purple'),
+    Part('D', Polygon([(0, 0), (2, 0), (1, 1), (0, 0)]), 'yellow'),
+    Part('J', Polygon([(0, 0), (2, 0), (2, 2), (1, 2), (1, 1), (0, 1), (0, 0)]), 'red'),
+    Part('B', Polygon([(0, 0), (2, 0), (2, 1), (0, 1), (0, 0)]), 'green'),
+    Part('N', Polygon([(0, 0), (1, 0), (1, 1), (3, 1), (3, 2), (0, 2), (0, 0)]), 'blue'),
+    Part('Y', Polygon([(0, 0), (1, 0), (1, 1), (0, 2), (0, 0)]), 'purple'),
+    Part('I', Polygon([(0, 0), (2, 0), (2, 2), (0, 0)]), 'yellow'),
+    Part('U', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (1, 3), (0, 3), (0, 1), (1, 1), (1, 0)]), 'red')
+  ]
+
+  # A list of all the parts available. This is actually a string, but we make it
+  # from the part names so we don't forget anyone.
+  def __init__(self, target, parts):
+    self.target = target
+    self.parts = parts
+
 class BoardState:
 
   framenr = 0
   logger = logging.getLogger('Board')
-  
+  extents = Point()
+
   def __init__(self, target, parts_placed, parts_available):
       self.target = target
       self.parts_placed = parts_placed
       self.parts_available = parts_available
 
   def plot(self, caption = '', movingpart = None, candidatepositions = None, deadpart = None):
-
+  
     fig = plt.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(1,1,1) # rows, columns, index
 
     xoffset = 0
     yoffset = 0
-    extents = Point() # start out empty
-
+    
     # plot the target polygon
     patch = PolygonPatch(self.target, facecolor='#cccccc')
     ax.add_patch(patch)
-    extents = extents.union(target)
+    BoardState.extents = BoardState.extents.union(self.target)
 
     # plot the placed parts on top of the target
     for part in self.parts_placed:
         polygon = part.finalpolygon()
-        extents = extents.union(polygon)
+        BoardState.extents = BoardState.extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color)
         ax.add_patch(patch)
     
     # plot the available parts off to the side.
-    bounds = target.bounds
+    bounds = self.target.bounds
     xoffset = bounds[0] # minx
     yoffset = bounds[1]-4 # miny and down from there
     for part in self.parts_available:
         polygon = translate(part.polygon, xoffset, yoffset)
-        extents = extents.union(polygon)
+        BoardState.extents = BoardState.extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color)
         ax.add_patch(patch)
 
@@ -107,7 +139,7 @@ class BoardState:
     if movingpart:
         #self.logger.debug('movingpart xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=movingpart.xoffset, yoffset=movingpart.yoffset, rotation=movingpart.rotation))
         polygon = movingpart.finalpolygon()
-        extents = extents.union(polygon)
+        BoardState.extents = BoardState.extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=movingpart.color, alpha=0.5)
         ax.add_patch(patch)
 
@@ -115,11 +147,11 @@ class BoardState:
     if candidatepositions:
       for part in candidatepositions:
         polygon = part.finalpolygon()
-        extents = extents.union(polygon)
+        BoardState.extents = BoardState.extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color, alpha=0.2)
         ax.add_patch(patch)
 
-    bounds = extents.bounds
+    bounds = BoardState.extents.bounds
 
     ax.set_title('FridgeIQ')
     xrange = [bounds[0]-1, bounds[2]+1]
@@ -163,7 +195,10 @@ def solve(board):
   indent = "  " * len(board.parts_placed)
     
   global finalpositions
-  global onlyplotsolutions
+  global plotsolutions
+  global plotcandidates
+  global plotdeadends
+  global plotstepbystep
 
   if not board.parts_available:
     # No more parts to place. We are done.
@@ -171,9 +206,13 @@ def solve(board):
     logger.info(indent + 'Found a solution! Checked {finalpositions} final positions.'.format(
       finalpositions=finalpositions
     ))
-    board.plot('solution')
+
+    wav = simpleaudio.WaveObject.from_wave_file(os.path.dirname(os.path.realpath(__file__)) + '\\fanfare.wav')
+    wav.play()
+
+    if plotsolutions:
+      board.plot('solution')
   else:
-    
     # Optimization: Check wether the smallest remaining disjoint area is still
     # applicable for the smallest part. If not we are already done with this whole
     # tree.
@@ -181,139 +220,137 @@ def solve(board):
       min_target_area = min(board.target, key=lambda x: x.area).area
     else:
       min_target_area = board.target.area 
-    print(min_target_area)
-
+    
     min_part = min(board.parts_available, key=lambda x: x.polygon.area)
 
     if min_target_area < min_part.polygon.area:
       finalpositions += 1
-      logger.debug(indent + 'Minimum disjoint space {min_target_area} too small for minimum piece {name}. Dead end. Checked {finalpositions} final positions.'.format(
+      logger.debug(indent + 'Dead end: Minimum disjoint space {min_target_area} too small for minimum piece. Checked {finalpositions} final positions.'.format(
           min_target_area=min_target_area,
-          name=min_part.name,
           finalpositions=finalpositions))
-      if not onlyplotsolutions:
+      
+      if plotdeadends:
         board.plot('deadend_area', None, None, min_part)
+      
       return
 
-    # Pick the largest part left. The list is sorted in descending order.
-    #
-    # Generate all possible legal positions this part can go in. This is
-    # done in a discrete fashion by scanning the bounding box of the candidate
-    # part in steps over the bounds of the target and checking the conditions.
-    # The scanning happens in steps and is repeated for each possible 45 degree
-    # rotation.
+    # pick a first choice for the next part to place.
     nextpart = board.parts_available[0]
+
+    # for each remaining part construct the list of possible legal positions
+    # in the remaining target. Stop if there are more than for our current
+    # nextpart because we will only use the one with the fewest next positions
+    # If we hit on a part that does have any legal remaining position left we
+    # have a found a dead end.
+    for nextpartcandidate in board.parts_available: 
+      # Generate all possible legal positions nextpart can go in. This is
+      # done in a discrete fashion by scanning the bounding box of the candidate
+      # part in steps over the bounds of the target and checking the conditions.
+      # The scanning happens in steps and is repeated for each possible 45 degree
+      # rotation.
+      
+      targetbounds = board.target.bounds
+      targetwidth = targetbounds[2]-targetbounds[0]
+      targetheight = targetbounds[3]-targetbounds[1]
+
+      nextpartcandidate.candidatepositions = []
+        
+      for rotation in nextpartcandidate.rotations:
+        # Clone part in default position 
+        part = copy.deepcopy(nextpartcandidate)
+
+        # Rotate in place
+        poly = rotate(part.polygon, rotation)
     
-    targetbounds = board.target.bounds
-    #logger.debug(indent + 'targetbounds={targetbounds}'.format(targetbounds=targetbounds));
-    targetwidth = targetbounds[2]-targetbounds[0]
-    targetheight = targetbounds[3]-targetbounds[1]
+        # Figure out the part bounds in that orientation. This will not change
+        # during the scan.
+        partbounds = poly.bounds
+        #logger.debug(indent + 'partbounds={partbounds}'.format(partbounds=partbounds));
+        partwidth = partbounds[2]-partbounds[0]
+        partheight = partbounds[3]-partbounds[1]
+        
+        # Initialize offsets so that the part is placed at the bottom-left
+        # corner of the target.
+        initialxoffset = targetbounds[0]-partbounds[0]
+        initialyoffset = targetbounds[1]-partbounds[1]
+        
+        # scan over the width and height of the target bounds.
+        xoffset = 0
+        while (len(nextpartcandidate.candidatepositions) <= len(nextpart.candidatepositions)) and (xoffset + partwidth <= targetwidth):
+          yoffset = 0
+          while (len(nextpartcandidate.candidatepositions) <= len(nextpart.candidatepositions)) and (yoffset + partheight <= targetheight):
+            #logger.debug(indent + 'trying xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=xoffset, yoffset=yoffset, rotation=rotation))
+            
+            part.rotation = rotation
+            part.xoffset = initialxoffset + xoffset
+            part.yoffset = initialyoffset + yoffset
 
-    candidatepositions = []
-      
-    for rotation in nextpart.rotations:
-      # Clone part in default position 
-      part = copy.deepcopy(nextpart)
+            # What about this position?
+            testpoly = part.finalpolygon()
 
-      # Rotate in place
-      poly = rotate(part.polygon, rotation)
-  
-      # Figure out the part bounds in that orientation. This will not change
-      # during the scan.
-      partbounds = poly.bounds
-      #logger.debug(indent + 'partbounds={partbounds}'.format(partbounds=partbounds));
-      partwidth = partbounds[2]-partbounds[0]
-      partheight = partbounds[3]-partbounds[1]
-      
-      # Initialize offsets so that the part is placed at the bottom-left
-      # corner of the target.
-      initialxoffset = targetbounds[0]-partbounds[0]
-      initialyoffset = targetbounds[1]-partbounds[1]
-      
-      # scan over the width and height of the target bounds.
-      xoffset = 0
-      while xoffset + partwidth <= targetwidth:
-        yoffset = 0
-        while yoffset + partheight <= targetheight:
-          #logger.debug(indent + 'trying xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=xoffset, yoffset=yoffset, rotation=rotation))
-          
-          part.rotation = rotation
-          part.xoffset = initialxoffset + xoffset
-          part.yoffset = initialyoffset + yoffset
+            # Condition 1:
+            # The candidate part has to be completely inside the target          
+            if board.target.contains(testpoly):
+              # We have removed all the area covered by parts already placed
+              # from the target. So we do not need to check for overlaps with
+              # placed parts, this is covered in condition 1.
+              # So we have a valid new legal position.                    
+              nextpartcandidate.candidatepositions.append(copy.deepcopy(part))
 
-          # What about this position?
-          testpoly = part.finalpolygon()
+            yoffset = yoffset + 1
+          xoffset = xoffset + 1
 
-          # Condition 1:
-          # The candidate part has to be completely inside the target          
-          if board.target.contains(testpoly):
-            # We have removed all the area covered by parts already placed
-            # from the target. So we do not need to check for overlaps with
-            # placed parts, this is covered in condition 1.
-            """
-            # Condition 2: 
-            # The candidate part may not overlap any of the parts that already have been placed.
-            overlaps = False
-            for part_placed in board.parts_placed:
-              poly_placed = translate(rotate(part_placed.polygon, part_placed.rotation), part_placed.xoffset, part_placed.yoffset)
+        if (len(nextpartcandidate.candidatepositions) > len(nextpart.candidatepositions)):
+          break # already more ways to place this part than our previous decided next part. Break out of rotation-loop
               
-              # for performance first check wether the bounds overlap. If they are distinct
-              # we do not need to do the full collision-check
-              if overlap(testpoly.bounds, poly_placed.bounds):            
-                # See DE-9IM: https://giswiki.hsr.ch/images/3/3d/9dem_springer.pdf
-                # The pattern is a rolled out string representation of the 3x3 relationship matrix.
-                # The first entry describes the relationship between the interiors of the two shapes.
-                # We do not want the interiours to overlap in any way, so we need a T in that position. 
-                # Boundaries may touch, so none of the predefined shapely binary predicates can do 
-                # the job on its own.  
-                if testpoly.relate_pattern(poly_placed, 'T********'):
-                  overlaps = True
-                  break
-            if not overlaps:
-              candidatepositions.append(copy.deepcopy(part))              
-            """
-            candidatepositions.append(copy.deepcopy(part))         
-          
-          yoffset = yoffset + 1
-        xoffset = xoffset + 1
-    
-    if len(candidatepositions) == 0:
-      finalpositions += 1
-      logger.debug(indent + 'Found no candidate positions for part {name}. Dead end. Checked {finalpositions} final positions.'.format(
-          n=len(candidatepositions), 
-          name=part.name,
-          finalpositions=finalpositions))
-      if not onlyplotsolutions:
-        board.plot('deadend_noposition', None, None, part)
-    else:      
-      logger.debug(indent + 'Found {n} candidate positions for part {name}.'.format(n=len(candidatepositions), name=part.name))
-      if not onlyplotsolutions:
-        board.plot('candidates', None, candidatepositions)
+      if len(nextpartcandidate.candidatepositions) == 0:
+        finalpositions += 1
+        logger.debug(indent + 'Dead end: Found no candidate positions for part {name}. Checked {finalpositions} final positions.'.format(
+            name=nextpartcandidate.name,
+            finalpositions=finalpositions))
+        
+        if plotdeadends:
+          board.plot('deadend_nopos', None, None, nextpartcandidate)
+        
+        return    
+      else:      
+        # is this a better candidate for the next part? It is if it has fewer legal
+        # next positions
+        if (len(nextpartcandidate.candidatepositions) < len(nextpart.candidatepositions)):
+          nextpart = nextpartcandidate
+        
+    logger.debug(indent + 'Try part {name} with {candidatepositions} candidate positions next.'.format(
+      name=nextpart.name,
+      candidatepositions=len(nextpart.candidatepositions)
+    ))
 
-      # try each candidate position
-      i = 1
-      for candidate in candidatepositions:        
-        logger.debug(indent + '{parts_placed} of {parts_total} parts placed. Try candidate position {i} of {candidatepositions} for part {name}.'.format(
-          parts_placed=len(board.parts_placed), 
-          parts_total=len(board.parts_placed) + len(board.parts_available), 
-          i=i, 
-          candidatepositions=len(candidatepositions),
-          name=nextpart.name
-        ))
+    if plotcandidates:
+      board.plot('candidatepositions', None, nextpart.candidatepositions, nextpart)
 
-        # Prepare the next board by deep-copying the current one. Remove the part we
-        # just (tentatively) placed from the list of available parts. Append it to
-        # the placed parts and remove it from the target area.
-        next_board = copy.deepcopy(board)
-        next_board.parts_available.pop(0)
-        next_board.parts_placed.append(candidate)
-        next_board.target = next_board.target.difference(candidate.finalpolygon())
-       
-        if not onlyplotsolutions:
-          next_board.plot('try{i:02d}'.format(i=i), candidate)
+    # try each candidate position
+    i = 1
+    for candidate in nextpart.candidatepositions:        
+      logger.debug(indent + '{parts_placed} of {parts_total} parts placed. Try candidate position {i} of {candidatepositions} for part {name}.'.format(
+        parts_placed=len(board.parts_placed), 
+        parts_total=len(board.parts_placed) + len(board.parts_available), 
+        i=i, 
+        candidatepositions=len(nextpart.candidatepositions),
+        name=nextpart.name
+      ))
 
-        solve(next_board)
-        i += 1
+      # Prepare the next board by deep-copying the current one. Remove the part we
+      # just (tentatively) placed from the list of available parts. Append it to
+      # the placed parts and remove it from the target area.
+      next_board = copy.deepcopy(board)
+      next_board.parts_available = [part for part in next_board.parts_available if part.name != nextpart.name]
+      next_board.parts_placed.append(candidate)
+      next_board.target = next_board.target.difference(candidate.finalpolygon())
+      
+      if plotstepbystep:
+        next_board.plot('try{i:02d}'.format(i=i), candidate)
+
+      solve(next_board)
+      i += 1
 
 # set up logging
 fh = logging.FileHandler(runfolder + '\\FridgeIQ.log')
@@ -335,44 +372,30 @@ logging.getLogger('matplotlib').setLevel(logging.INFO)
 logger = logging.getLogger('Main')
 logger.info('starting')
 
-colors = ['red', 'green', 'blue', 'purple', 'yellow']
-    
-# Create a dictionary for all the parts that make up the puzzle.
-partscatalog = {
-    'A' : Part('A', Polygon([(0, 0), (1, 0), (1, 1), (2, 1), (1, 2), (0, 2), (0, 0)]), 'red'),
-    'R' : Part('R', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (0, 1), (1, 1), (1, 0)]), 'green'),
-    'E' : Part('E', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (0, 1), (1, 1), (1, 0)]), 'blue'),
-    'L' : Part('L', Polygon([(0, 0), (2, 0), (2, 1), (3, 1), (2, 2), (1, 2), (1, 1), (0, 1), (0, 0)]), 'purple'),
-    'O' : Part('O', Polygon([(0, 0), (2, 0), (1, 1), (1, 2), (0, 2), (0, 0)]), 'yellow'),
-    'M' : Part('M', Polygon([(0, 0), (1, 0), (1, 2), (0, 1), (0, 0)]), 'red'),
-    'T' : Part('T', Polygon([(0, 0), (3, 0), (1, 2), (1, 1), (0, 1), (0, 0)]), 'green',),
-    'S' : Part('S', Polygon([(0, 0), (1, 0), (1, 3), (0, 2), (0, 0)]), 'blue'),
-    'Q' : Part('Q', Polygon([(0, 0), (1, 0), (1, 2), (0, 2), (0, 0)]), 'purple'),
-    'D' : Part('D', Polygon([(0, 0), (2, 0), (1, 1), (0, 0)]), 'yellow'),
-    'J' : Part('J', Polygon([(0, 0), (2, 0), (2, 2), (1, 2), (1, 1), (0, 1), (0, 0)]), 'red'),
-    'B' : Part('B', Polygon([(0, 0), (2, 0), (2, 1), (0, 1), (0, 0)]), 'green'),
-    'N' : Part('N', Polygon([(0, 0), (1, 0), (1, 1), (3, 1), (3, 2), (0, 2), (0, 0)]), 'blue'),
-    'Y' : Part('Y', Polygon([(0, 0), (1, 0), (1, 1), (0, 2), (0, 0)]), 'purple'),
-    'I' : Part('I', Polygon([(0, 0), (2, 0), (2, 2), (0, 0)]), 'yellow'),
-    'U' : Part('U', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (1, 3), (0, 3), (0, 1), (1, 1), (1, 0)]), 'red')
-}
+def solvepuzzle(puzzle):
+  # Make a list of parts for the puzzle. Sort by descending area.
+  parts = [p for p in Puzzle.partscatalog if p.name in list(puzzle.parts)]
+  parts.sort(key=lambda part: (part.polygon.area, part.name), reverse=True) 
 
-# A list of all the parts available. This is actually a string, but we make it
-# from the catalog keys so we don't forget anyone.
-allparts = ''.join(partscatalog.keys())
+  # Plot some information about the puzzle initial state
+  logger.debug('Target area={area}'.format(area=puzzle.target.area))
+  logger.debug('Parts available in descending order of area:')
+  totalarea = 0
+  for part in parts:
+    logger.debug('{name}: area={area}, distinct rotations={rotations}'.format(name=part.name, area=part.polygon.area, rotations=part.rotations))
+    totalarea += part.polygon.area
+  logger.debug('Total area of parts={totalarea}'.format(totalarea=totalarea))
+  if totalarea == puzzle.target.area:
+    logger.debug('Total parts area matches target area. A valid puzzle.')
+  else:
+    raise ValueError('Total parts area does not match target area, puzzle is invalid.')
 
-# Set up the default puzzles. Each as a string and we can make a list of parts for
-# them from the catalog if we want.
-puzzle_square_1  = 'IJMR'
-puzzle_square_2  = 'BDJNQSY'
-puzzle_square_3  = 'ADJMNSY'
-puzzle_square_4  = 'AIJMOQS'
-puzzle_square_5  = 'ABDEIMNYRST'
-puzzle_square_6  = 'ABDMNOQRSTY'
-puzzle_square_7  = 'ABDEIJMNOSY'
-puzzle_square_8  = 'ABIJMOQRSTY'
-puzzle_square_9  = 'ARELOMSQJBNYIU'
-puzzle_square_10 = 'ARELOMTSQDJBNYI'
+  # Create the initial board state
+  board = BoardState(puzzle.target, [], parts)
+
+  # Try to solve it
+  board.plot('setup')
+  solve(board)
 
 # Helper function to create a square of given side-length as a target shape.
 def target_square(sides):
@@ -443,62 +466,26 @@ def target_octagon():
 
     return outer.difference(inner).union(octagon.difference(inner_square))
 
-# Select a puzzle to work on.
-#puzzle = puzzle_square_1
-#target = target_square(3)
+# Create string naming all parts
+allparts = ''.join(map(lambda part: part.name, Puzzle.partscatalog))
 
-#puzzle = puzzle_square_2
-#target = target_square(4)
+# Set up the default puzzles. Each as a string and we can make a list of parts for
+# them from the catalog if we want.
+puzzles = {
+  'square_1':  Puzzle(target_square(3), 'IJMR'),
+  'square_2':  Puzzle(target_square(4), 'BDJNQSY'),
+  'square_3':  Puzzle(target_square(4), 'ADJMNSY'),
+  'square_4':  Puzzle(target_square(4), 'AIJMOQS'),
+  'square_5':  Puzzle(target_square(5), 'ABDEIMNYRST'),
+  'square_6':  Puzzle(target_square(5), 'ABDMNOQRSTY'),
+  'square_7':  Puzzle(target_square(5), 'ABDEIJMNOSY'),
+  'square_8':  Puzzle(target_square(5), 'ABIJMOQRSTY'),
+  'square_9':  Puzzle(target_square(6), 'ARELOMSQJBNYIU'),
+  'square_10': Puzzle(target_square(6), 'ARELOMTSQDJBNYI'),
 
-#puzzle = puzzle_square_3
-#target = target_square(4)
+  'challenge_1': Puzzle(target_octagon(), allparts)
+}
 
-#puzzle = puzzle_square_4
-#target = target_square(4)
-
-#puzzle = puzzle_square_5
-#target = target_square(5)
-
-#puzzle = puzzle_square_6
-#target = target_square(5)
-
-#puzzle = puzzle_square_7
-#target = target_square(5)
-
-#puzzle = puzzle_square_8
-#target = target_square(5)
-
-#puzzle = puzzle_square_9
-#target = target_square(6)
-
-#puzzle = puzzle_square_10
-#target = target_square(6)
-
-puzzle = allparts
-target = target_octagon()
-
-# Make a list of parts for the puzzle. Sort by descending area.
-parts = [p for p in partscatalog.values() if p.name in list(puzzle)]
-parts.sort(key=lambda part: (part.polygon.area, part.name), reverse=True) 
-
-# Plot some information about the puzzle initial state
-logger.debug('Target area={area}'.format(area=target.area))
-logger.debug('Parts available in descending order of area:')
-totalarea = 0
-for part in parts:
-  logger.debug('{name}: area={area}, rotations={rotations}'.format(name=part.name, area=part.polygon.area, rotations=part.rotations))
-  totalarea += part.polygon.area
-logger.debug('Total area of parts={totalarea}'.format(totalarea=totalarea))
-if totalarea == target.area:
-  logger.debug('Total parts area matches target area. A valid puzzle.')
-else:
-  raise ValueError('Total parts area does not match target area, puzzle is invalid.')
-
-# Create the initial board state
-board = BoardState(target, [], parts)
-
-# Try to solve it
-board.plot('setup')
-solve(board)
+solvepuzzle(puzzles['challenge_1'])
 
 #input('Press Enter to continue...')
