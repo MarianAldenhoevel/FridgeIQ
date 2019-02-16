@@ -234,91 +234,76 @@ def solve(board):
       
       return
 
-    # pick a first choice for the next part to place.
+    # pick the next part to place.
     nextpart = board.parts_available[0]
 
-    # for each remaining part construct the list of possible legal positions
-    # in the remaining target. Stop if there are more than for our current
-    # nextpart because we will only use the one with the fewest next positions
-    # If we hit on a part that does have any legal remaining position left we
-    # have a found a dead end.
-    for nextpartcandidate in board.parts_available: 
-      # Generate all possible legal positions nextpart can go in. This is
-      # done in a discrete fashion by scanning the bounding box of the candidate
-      # part in steps over the bounds of the target and checking the conditions.
-      # The scanning happens in steps and is repeated for each possible 45 degree
-      # rotation.
+    # Generate all possible legal positions nextpart can go in. This is
+    # done in a discrete fashion by scanning the bounding box of the candidate
+    # part in steps over the bounds of the target and checking the conditions.
+    # The scanning happens in steps and is repeated for each possible 45 degree
+    # rotation.
+    targetbounds = board.target.bounds
+    targetwidth = targetbounds[2]-targetbounds[0]
+    targetheight = targetbounds[3]-targetbounds[1]
+
+    nextpart.candidatepositions = []
       
-      targetbounds = board.target.bounds
-      targetwidth = targetbounds[2]-targetbounds[0]
-      targetheight = targetbounds[3]-targetbounds[1]
+    for rotation in nextpart.rotations:
+      # Clone part in default position 
+      part = copy.deepcopy(nextpart)
 
-      nextpartcandidate.candidatepositions = []
-        
-      for rotation in nextpartcandidate.rotations:
-        # Clone part in default position 
-        part = copy.deepcopy(nextpartcandidate)
+      # Rotate in place
+      poly = rotate(part.polygon, rotation)
+  
+      # Figure out the part bounds in that orientation. This will not change
+      # during the scan.
+      partbounds = poly.bounds
+      #logger.debug(indent + 'partbounds={partbounds}'.format(partbounds=partbounds));
+      partwidth = partbounds[2]-partbounds[0]
+      partheight = partbounds[3]-partbounds[1]
+      
+      # Initialize offsets so that the part is placed at the bottom-left
+      # corner of the target.
+      initialxoffset = targetbounds[0]-partbounds[0]
+      initialyoffset = targetbounds[1]-partbounds[1]
+      
+      # scan over the width and height of the target bounds.
+      xoffset = 0
+      while xoffset + partwidth <= targetwidth:
+        yoffset = 0
+        while yoffset + partheight <= targetheight:
+          #logger.debug(indent + 'trying xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=xoffset, yoffset=yoffset, rotation=rotation))
+          
+          part.rotation = rotation
+          part.xoffset = initialxoffset + xoffset
+          part.yoffset = initialyoffset + yoffset
 
-        # Rotate in place
-        poly = rotate(part.polygon, rotation)
-    
-        # Figure out the part bounds in that orientation. This will not change
-        # during the scan.
-        partbounds = poly.bounds
-        #logger.debug(indent + 'partbounds={partbounds}'.format(partbounds=partbounds));
-        partwidth = partbounds[2]-partbounds[0]
-        partheight = partbounds[3]-partbounds[1]
-        
-        # Initialize offsets so that the part is placed at the bottom-left
-        # corner of the target.
-        initialxoffset = targetbounds[0]-partbounds[0]
-        initialyoffset = targetbounds[1]-partbounds[1]
-        
-        # scan over the width and height of the target bounds.
-        xoffset = 0
-        while (len(nextpartcandidate.candidatepositions) <= len(nextpart.candidatepositions)) and (xoffset + partwidth <= targetwidth):
-          yoffset = 0
-          while (len(nextpartcandidate.candidatepositions) <= len(nextpart.candidatepositions)) and (yoffset + partheight <= targetheight):
-            #logger.debug(indent + 'trying xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=xoffset, yoffset=yoffset, rotation=rotation))
-            
-            part.rotation = rotation
-            part.xoffset = initialxoffset + xoffset
-            part.yoffset = initialyoffset + yoffset
+          # What about this position?
+          testpoly = part.finalpolygon()
 
-            # What about this position?
-            testpoly = part.finalpolygon()
+          # Condition 1:
+          # The candidate part has to be completely inside the target          
+          if board.target.contains(testpoly):
+            # We have removed all the area covered by parts already placed
+            # from the target. So we do not need to check for overlaps with
+            # placed parts, this is covered in condition 1.
+            # So we have a valid new legal position.                    
+            nextpart.candidatepositions.append(copy.deepcopy(part))
 
-            # Condition 1:
-            # The candidate part has to be completely inside the target          
-            if board.target.contains(testpoly):
-              # We have removed all the area covered by parts already placed
-              # from the target. So we do not need to check for overlaps with
-              # placed parts, this is covered in condition 1.
-              # So we have a valid new legal position.                    
-              nextpartcandidate.candidatepositions.append(copy.deepcopy(part))
-
-            yoffset = yoffset + 1
-          xoffset = xoffset + 1
-
-        if (len(nextpartcandidate.candidatepositions) > len(nextpart.candidatepositions)):
-          break # already more ways to place this part than our previous decided next part. Break out of rotation-loop
-              
-      if len(nextpartcandidate.candidatepositions) == 0:
-        finalpositions += 1
-        logger.debug(indent + 'Dead end: Found no candidate positions for part {name}. Checked {finalpositions} final positions.'.format(
-            name=nextpartcandidate.name,
-            finalpositions=finalpositions))
-        
-        if plotdeadends:
-          board.plot('deadend_nopos', None, None, nextpartcandidate)
-        
-        return    
-      else:      
-        # is this a better candidate for the next part? It is if it has fewer legal
-        # next positions
-        if (len(nextpartcandidate.candidatepositions) < len(nextpart.candidatepositions)):
-          nextpart = nextpartcandidate
-        
+          yoffset = yoffset + 1
+        xoffset = xoffset + 1
+      
+    if len(nextpart.candidatepositions) == 0:
+      finalpositions += 1
+      logger.debug(indent + 'Dead end: Found no candidate positions for part {name}. Checked {finalpositions} final positions.'.format(
+          name=nextpart.name,
+          finalpositions=finalpositions))
+      
+      if plotdeadends:
+        board.plot('deadend_nopos', None, None, nextpart)
+      
+      return    
+      
     logger.debug(indent + 'Try part {name} with {candidatepositions} candidate positions next.'.format(
       name=nextpart.name,
       candidatepositions=len(nextpart.candidatepositions)
