@@ -10,6 +10,9 @@ import sys
 import time
 import copy
 
+import matplotlib
+matplotlib.use('agg') # select a non-interactive backend. Do this before importing pyplot!
+
 from operator import attrgetter
 from matplotlib import pyplot as plt
 from shapely.geometry.polygon import Polygon
@@ -24,6 +27,8 @@ import math
 runfolder = os.path.dirname(os.path.realpath(__file__)) + '\\' + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
 os.makedirs(runfolder)
 
+onlyplotsolutions = True
+
 class Part:
 
   def __init__(self, name, polygon, color):
@@ -33,7 +38,16 @@ class Part:
       self.xoffset = 0
       self.yoffset = 0
       self.rotation = 0
-      
+
+      # build a list of distinct rotations
+      self.rotations = [0]
+      rotation_polys = [self.polygon]
+      for rotation in range(90, 360, 90):
+        test = rotate(self.polygon, rotation)
+        if not any(test.equals(poly) for poly in rotation_polys):
+          self.rotations.append(rotation)
+          rotation_polys.append(test)
+
 class BoardState:
 
   framenr = 0
@@ -45,10 +59,10 @@ class BoardState:
       self.parts_available = parts_available
 
   def plot(self, caption = '', movingpart = None, candidatepositions = None):
+
     fig = plt.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(1,1,1) # rows, columns, index
 
-    i = 0
     xoffset = 0
     yoffset = 0
     extents = Point(0,0)
@@ -81,7 +95,7 @@ class BoardState:
 
     # plot the part that is on the move
     if movingpart:
-        self.logger.debug('movingpart xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=movingpart.xoffset, yoffset=movingpart.yoffset, rotation=movingpart.rotation))
+        #self.logger.debug('movingpart xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=movingpart.xoffset, yoffset=movingpart.yoffset, rotation=movingpart.rotation))
         polygon = translate(rotate(movingpart.polygon, movingpart.rotation), movingpart.xoffset, movingpart.yoffset)
         extents = extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=movingpart.color, alpha=0.5)
@@ -103,7 +117,6 @@ class BoardState:
     ax.set_xlim(*xrange)
     ax.set_ylim(*yrange)
     ax.set_aspect(1)
-    global fignr
     global runfolder
     figname = runfolder + '\\{n:05d}'.format(n=BoardState.framenr)
     if caption:
@@ -136,11 +149,11 @@ def solve(board):
     targetwidth = targetbounds[2]-targetbounds[0]
     targetheight = targetbounds[3]-targetbounds[1]
 
-    candidatepositions = [];
+    candidatepositions = []
       
-    for rotation in range(0, 360, 90):
+    for rotation in nextpart.rotations:
       # Clone part in default position 
-      part = copy.deepcopy(nextpart);
+      part = copy.deepcopy(nextpart)
 
       # Rotate in place
       poly = rotate(part.polygon, rotation)
@@ -180,7 +193,13 @@ def solve(board):
             overlaps = False
             for part_placed in board.parts_placed:
               poly_placed = translate(rotate(part_placed.polygon, part_placed.rotation), part_placed.xoffset, part_placed.yoffset)
-              if poly_placed.intersects(testpoly):
+              # See DE-9IM: https://giswiki.hsr.ch/images/3/3d/9dem_springer.pdf
+              # The pattern is a rolled out string representation of the 3x3 relationship matrix.
+              # The first entry describes the relationship between the interiors of the two shapes.
+              # We do not want the interiours to overlap in any way, so we need a T in that position. 
+              # Boundaries may touch, so none of the predefined shapely binary predicates can do 
+              # the job on its own.  
+              if testpoly.relate_pattern(poly_placed, 'T********'):
                 #logger.debug(indent + 'part overlaps with already placed part {name}'.format(name=part_placed.name))
                 overlaps = True
             if not overlaps:
@@ -192,21 +211,32 @@ def solve(board):
           yoffset = yoffset + 1
         xoffset = xoffset + 1
 
+    global onlyplotsolutions
+
     if len(candidatepositions) == 0:
-      logger.debug(indent + 'Found no candidate positions for part {name}. Dead end'.format(n=len(candidatepositions), name=part.name))
-      board.plot('deadend')
+      logger.debug(indent + 'Found no candidate positions for part {name}. Dead end.'.format(n=len(candidatepositions), name=part.name))
+      if not onlyplotsolutions:
+        board.plot('deadend')
     else:      
-      logger.debug(indent + 'Found {n} candidate positions for part {name}'.format(n=len(candidatepositions), name=part.name))
-      board.plot('candidates', None, candidatepositions)
+      logger.debug(indent + 'Found {n} candidate positions for part {name}.'.format(n=len(candidatepositions), name=part.name))
+      if not onlyplotsolutions:
+        board.plot('candidates', None, candidatepositions)
 
       # try each candidate position
       i = 1
-      for candidate in candidatepositions:
-        logger.debug(indent + 'Try candidate position #{i}'.format(i=i))
+      for candidate in candidatepositions:        
+        logger.debug(indent + '{parts_placed} of {parts_total} parts placed. Try candidate position {i} of {candidatepositions} for part {name}.'.format(
+          parts_placed=len(board.parts_placed), 
+          parts_total=len(board.parts_placed) + len(board.parts_available), 
+          i=i, 
+          candidatepositions=len(candidatepositions),
+          name=nextpart.name
+        ))
         next_board = copy.deepcopy(board)
         next_board.parts_available.pop(0)
         next_board.parts_placed.append(candidate)
-        next_board.plot('try{i:02d}'.format(i=i), candidate)
+        if not onlyplotsolutions:
+          next_board.plot('try{i:02d}'.format(i=i), candidate)
         solve(next_board)
         i += 1
 
@@ -217,8 +247,8 @@ fh.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 
-ch.setFormatter(logging.Formatter('({thread}) {name} [{levelname}:7}] - {message}', style='{'))
-ch.setFormatter(logging.Formatter('{asctime} ({thread}) {name} [{levelname:7}] - {message}', style='{'))
+ch.setFormatter(logging.Formatter('({thread}) [{levelname:7}] {name} - {message}', style='{'))
+fh.setFormatter(logging.Formatter('{asctime} ({thread}) [{levelname:7}] {name} - {message}', style='{'))
 
 root = logging.getLogger()
 root.addHandler(ch)
@@ -370,7 +400,7 @@ def target_octagon():
 #target = target_square(6)
 
 puzzle = allparts
-target = target_octagon();
+target = target_octagon()
 
 # Make a list of parts for the puzzle. Sort by descending area.
 parts = [p for p in partscatalog.values() if p.name in list(puzzle)]
@@ -381,7 +411,7 @@ logger.debug('Target area={area}'.format(area=target.area))
 logger.debug('Parts available in descending order of area:')
 totalarea = 0
 for part in parts:
-  logger.debug('{name}: area={area}'.format(name=part.name, area=part.polygon.area))
+  logger.debug('{name}: area={area}, rotations={rotations}'.format(name=part.name, area=part.polygon.area, rotations=part.rotations))
   totalarea += part.polygon.area
 logger.debug('Total area of parts={totalarea}'.format(totalarea=totalarea))
 if totalarea == target.area:
