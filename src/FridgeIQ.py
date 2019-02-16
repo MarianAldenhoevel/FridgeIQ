@@ -28,6 +28,7 @@ runfolder = os.path.dirname(os.path.realpath(__file__)) + '\\' + time.strftime('
 os.makedirs(runfolder)
 
 onlyplotsolutions = True
+finalpositions = 0
 
 class Part:
 
@@ -47,6 +48,9 @@ class Part:
         if not any(test.equals(poly) for poly in rotation_polys):
           self.rotations.append(rotation)
           rotation_polys.append(test)
+  
+  def finalpolygon(self):
+    return translate(rotate(self.polygon, self.rotation), self.xoffset, self.yoffset)
 
 class BoardState:
 
@@ -58,14 +62,14 @@ class BoardState:
       self.parts_placed = parts_placed
       self.parts_available = parts_available
 
-  def plot(self, caption = '', movingpart = None, candidatepositions = None):
+  def plot(self, caption = '', movingpart = None, candidatepositions = None, deadpart = None):
 
     fig = plt.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(1,1,1) # rows, columns, index
 
     xoffset = 0
     yoffset = 0
-    extents = Point(0,0)
+    extents = Point() # start out empty
 
     # plot the target polygon
     patch = PolygonPatch(self.target, facecolor='#cccccc')
@@ -74,12 +78,12 @@ class BoardState:
 
     # plot the placed parts on top of the target
     for part in self.parts_placed:
-        polygon = translate(rotate(part.polygon, part.rotation), part.xoffset, part.yoffset)
+        polygon = part.finalpolygon()
         extents = extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color)
         ax.add_patch(patch)
-
-    # plot the available parts off to the side
+    
+    # plot the available parts off to the side.
     bounds = target.bounds
     xoffset = bounds[0] # minx
     yoffset = bounds[1]-4 # miny and down from there
@@ -88,6 +92,12 @@ class BoardState:
         extents = extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color)
         ax.add_patch(patch)
+
+        # is this the dead part?
+        if deadpart and (deadpart.name == part.name):
+          patch = PolygonPatch(polygon, facecolor=part.color, edgecolor="red")
+          ax.add_patch(patch)
+
         xoffset = xoffset + 4
         if xoffset > 12:
             xoffset = 0
@@ -96,7 +106,7 @@ class BoardState:
     # plot the part that is on the move
     if movingpart:
         #self.logger.debug('movingpart xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=movingpart.xoffset, yoffset=movingpart.yoffset, rotation=movingpart.rotation))
-        polygon = translate(rotate(movingpart.polygon, movingpart.rotation), movingpart.xoffset, movingpart.yoffset)
+        polygon = movingpart.finalpolygon()
         extents = extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=movingpart.color, alpha=0.5)
         ax.add_patch(patch)
@@ -104,7 +114,7 @@ class BoardState:
     # plot candidatepositions
     if candidatepositions:
       for part in candidatepositions:
-        polygon = translate(rotate(part.polygon, part.rotation), part.xoffset, part.yoffset)
+        polygon = part.finalpolygon()
         extents = extents.union(polygon)
         patch = PolygonPatch(polygon, facecolor=part.color, alpha=0.2)
         ax.add_patch(patch)
@@ -126,15 +136,65 @@ class BoardState:
     plt.close(fig)
     BoardState.framenr += 1
 
+def overlap(bounds1, bounds2):
+  minx1 = bounds1[0]
+  miny1 = bounds1[1]
+  maxx1 = bounds1[2]
+  maxy1 = bounds1[3]
+
+  minx2 = bounds2[0]
+  miny2 = bounds2[1]
+  maxx2 = bounds2[2]
+  maxy2 = bounds2[3]
+
+  if (maxx1 <= minx2):
+    return False # to the left
+  elif (minx1 >= maxx2):
+    return False # to the right
+  elif (maxy1 <= miny2):
+    return False # above
+  elif (miny1 >= maxy2):
+    return False # below
+  else:
+    return True # overlapping
+
 def solve(board):
 
   indent = "  " * len(board.parts_placed)
     
+  global finalpositions
+  global onlyplotsolutions
+
   if not board.parts_available:
     # No more parts to place. We are done.
-    logger.debug(indent + 'Solved')
+    finalpositions += 1
+    logger.info(indent + 'Found a solution! Checked {finalpositions} final positions.'.format(
+      finalpositions=finalpositions
+    ))
     board.plot('solution')
   else:
+    
+    # Optimization: Check wether the smallest remaining disjoint area is still
+    # applicable for the smallest part. If not we are already done with this whole
+    # tree.
+    if board.target.geom_type == 'MultiPolygon':
+      min_target_area = min(board.target, key=lambda x: x.area).area
+    else:
+      min_target_area = board.target.area 
+    print(min_target_area)
+
+    min_part = min(board.parts_available, key=lambda x: x.polygon.area)
+
+    if min_target_area < min_part.polygon.area:
+      finalpositions += 1
+      logger.debug(indent + 'Minimum disjoint space {min_target_area} too small for minimum piece {name}. Dead end. Checked {finalpositions} final positions.'.format(
+          min_target_area=min_target_area,
+          name=min_part.name,
+          finalpositions=finalpositions))
+      if not onlyplotsolutions:
+        board.plot('deadend_area', None, None, min_part)
+      return
+
     # Pick the largest part left. The list is sorted in descending order.
     #
     # Generate all possible legal positions this part can go in. This is
@@ -144,7 +204,7 @@ def solve(board):
     # rotation.
     nextpart = board.parts_available[0]
     
-    targetbounds = target.bounds
+    targetbounds = board.target.bounds
     #logger.debug(indent + 'targetbounds={targetbounds}'.format(targetbounds=targetbounds));
     targetwidth = targetbounds[2]-targetbounds[0]
     targetheight = targetbounds[3]-targetbounds[1]
@@ -181,42 +241,50 @@ def solve(board):
           part.xoffset = initialxoffset + xoffset
           part.yoffset = initialyoffset + yoffset
 
-          # What about this position? Remember the poly is already rotated.
-          testpoly = translate(poly, part.xoffset, part.yoffset)
+          # What about this position?
+          testpoly = part.finalpolygon()
 
-          # Conditions:
-          # The candidate part has to be completely inside the target
-          # The candidate part may not overlap any of the that already have been placed.
-
-          if target.contains(testpoly):
-            #logger.debug(indent + 'part is inside target')
+          # Condition 1:
+          # The candidate part has to be completely inside the target          
+          if board.target.contains(testpoly):
+            # We have removed all the area covered by parts already placed
+            # from the target. So we do not need to check for overlaps with
+            # placed parts, this is covered in condition 1.
+            """
+            # Condition 2: 
+            # The candidate part may not overlap any of the parts that already have been placed.
             overlaps = False
             for part_placed in board.parts_placed:
               poly_placed = translate(rotate(part_placed.polygon, part_placed.rotation), part_placed.xoffset, part_placed.yoffset)
-              # See DE-9IM: https://giswiki.hsr.ch/images/3/3d/9dem_springer.pdf
-              # The pattern is a rolled out string representation of the 3x3 relationship matrix.
-              # The first entry describes the relationship between the interiors of the two shapes.
-              # We do not want the interiours to overlap in any way, so we need a T in that position. 
-              # Boundaries may touch, so none of the predefined shapely binary predicates can do 
-              # the job on its own.  
-              if testpoly.relate_pattern(poly_placed, 'T********'):
-                #logger.debug(indent + 'part overlaps with already placed part {name}'.format(name=part_placed.name))
-                overlaps = True
+              
+              # for performance first check wether the bounds overlap. If they are distinct
+              # we do not need to do the full collision-check
+              if overlap(testpoly.bounds, poly_placed.bounds):            
+                # See DE-9IM: https://giswiki.hsr.ch/images/3/3d/9dem_springer.pdf
+                # The pattern is a rolled out string representation of the 3x3 relationship matrix.
+                # The first entry describes the relationship between the interiors of the two shapes.
+                # We do not want the interiours to overlap in any way, so we need a T in that position. 
+                # Boundaries may touch, so none of the predefined shapely binary predicates can do 
+                # the job on its own.  
+                if testpoly.relate_pattern(poly_placed, 'T********'):
+                  overlaps = True
+                  break
             if not overlaps:
-              #logger.debug(indent + 'no overlap, good placement!')              
               candidatepositions.append(copy.deepcopy(part))              
-          #else:
-            #logger.debug(indent + 'part sticks out from target')
+            """
+            candidatepositions.append(copy.deepcopy(part))         
           
           yoffset = yoffset + 1
         xoffset = xoffset + 1
-
-    global onlyplotsolutions
-
+    
     if len(candidatepositions) == 0:
-      logger.debug(indent + 'Found no candidate positions for part {name}. Dead end.'.format(n=len(candidatepositions), name=part.name))
+      finalpositions += 1
+      logger.debug(indent + 'Found no candidate positions for part {name}. Dead end. Checked {finalpositions} final positions.'.format(
+          n=len(candidatepositions), 
+          name=part.name,
+          finalpositions=finalpositions))
       if not onlyplotsolutions:
-        board.plot('deadend')
+        board.plot('deadend_noposition', None, None, part)
     else:      
       logger.debug(indent + 'Found {n} candidate positions for part {name}.'.format(n=len(candidatepositions), name=part.name))
       if not onlyplotsolutions:
@@ -232,11 +300,18 @@ def solve(board):
           candidatepositions=len(candidatepositions),
           name=nextpart.name
         ))
+
+        # Prepare the next board by deep-copying the current one. Remove the part we
+        # just (tentatively) placed from the list of available parts. Append it to
+        # the placed parts and remove it from the target area.
         next_board = copy.deepcopy(board)
         next_board.parts_available.pop(0)
         next_board.parts_placed.append(candidate)
+        next_board.target = next_board.target.difference(candidate.finalpolygon())
+       
         if not onlyplotsolutions:
           next_board.plot('try{i:02d}'.format(i=i), candidate)
+
         solve(next_board)
         i += 1
 
