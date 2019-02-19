@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-@author: Marian Aldenhövel
+@author: Marian Aldenhövel <marian.aldenhoevel@marian-aldenhoevel.de>
 '''
 
 import math
@@ -12,20 +12,17 @@ import copy
 import simpleaudio
 import datetime
 import argparse 
+import math
 
-import matplotlib
-matplotlib.use('agg') # select a non-interactive backend. Do this before importing pyplot!
-
-from operator import attrgetter
-from matplotlib import pyplot as plt
 from shapely.geometry.polygon import Polygon
 from shapely.geometry.point import Point
-from shapely.ops import cascaded_union
 from shapely.affinity import translate
 from shapely.affinity import rotate
 from descartes import PolygonPatch
 
-import math
+import matplotlib
+matplotlib.use('agg') # select a non-interactive backend. Do this before importing pyplot!
+from matplotlib import pyplot
 
 # Global variables
 starttime = datetime.datetime.now().replace(microsecond=0)
@@ -34,6 +31,14 @@ puzzles = None
 finalpositions = 0
 solutions = 0
 
+# Part encapsulates a single part in the puzzle. It has geometry as a shapely.geometry.polygon which is
+# never transformed after creation. It has separate x/y-offset and rotation members which are set during
+# the operation of the solver and a final_polygon method that returns the polygon in the position and
+# attitude specified with the separate members.
+#
+# When a Part is constructed __init__ checks the geometry to see in which of the 90-degree rotations it
+# is distinct. This list is also kept with the Part so we can optimize the placement during solving to
+# eliminate duplicates.
 class Part:
   
   def __init__(self, name, polygon, color):
@@ -66,6 +71,9 @@ class Part:
   def finalpolygon(self):
     return translate(rotate(self.polygon, self.rotation), self.xoffset, self.yoffset)
 
+# A Puzzle is a configuration made up from a name, a target-geometry as a shapely.geometry.polygon
+# and a list of parts that are available. The class also holds the complete catalog of parts with
+# their geometric definition as instances of the above Part class.
 class Puzzle:
   # Create a list of all the parts that make up the puzzle.
   partscatalog = [
@@ -115,7 +123,7 @@ class Puzzle:
   def target_triangle_horz(cls, base, height):
     return Polygon([(0, 0), (base, 0), (base/2, height), (0, 0)])
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_1(cls):
     m = 1
@@ -181,7 +189,7 @@ class Puzzle:
 
     return outer.difference(inner).union(octagon.difference(inner_square))
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_2(cls):
     return Polygon([
@@ -192,7 +200,7 @@ class Puzzle:
       (0, 3), (1, 3), (1, 2), (2, 2), (2, 1), (3, 1), (3, 0) 
     ])
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_3(cls):
     outer =  Polygon([
@@ -215,7 +223,7 @@ class Puzzle:
 
     return outer.difference(inner)
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_4(cls):
     outer =  Polygon([(0, 0), (7, 0), (7, 7), (0, 7), (0, 0)])
@@ -240,7 +248,7 @@ class Puzzle:
 
     return outer.difference(inner)
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_5(cls):
     outer = Polygon([
@@ -263,7 +271,7 @@ class Puzzle:
 
     return outer.difference(inner)
 
-  # Helper function to the target shape for a challenge.
+  # Helper function to create the target shape for a specific challenge.
   @classmethod
   def target_challenge_6(cls):
     outer =  Polygon([
@@ -286,6 +294,12 @@ class Puzzle:
 
     return outer.difference(inner)
 
+# BoardState is the main object class for the solver. It carries a reference to the puzzle being solved
+# (name, list of parts and the complete geometry of the target). It has a list of parts still available,
+# in their default don't-care positions as created in the catalog. It has a list of parts already placed,
+# their offset- and rotation-values matter. And the remaining geometry of the target with all the placed
+# parts subtracted. Instances of this class are used to maintain the state and modify it as we progress
+# down the tree.
 class BoardState:
 
   framenr = 0
@@ -294,36 +308,36 @@ class BoardState:
 
   def __init__(self, puzzle, parts_placed, parts_available):
     self.puzzle = puzzle
-    self.target = puzzle.target
+    self.remaining_target = puzzle.target
     self.parts_placed = parts_placed
     self.parts_available = parts_available
     self.candidateposition = None
 
   def __copy__(self):
-    clone = BoardState(self.target, self.parts_placed.copy(), self.parts_available.copy())
+    clone = BoardState(self.remaining_target, self.parts_placed.copy(), self.parts_available.copy())
     clone.puzzle = self.puzzle
 
     return clone 
 
-  def filter_rotational_symmetries(self, boards):
-    # given a list of board states, return the list of those that do not
-    # have 90-degree rotational symmetries with any others.
+  # given a list of board states, return the list of those that do not
+  # have 90-degree rotational symmetries with any others.    
+  def filter_rotational_symmetries(self, other_boards):
     result = []
 
-    if boards:
+    if other_boards:
       # We assume that all the boards are for the same puzzle, that is their 
       # complete targets are the same. So we can rotate around the common 
       # center of the original target.
-      center = boards[0].puzzle.target.centroid
+      center = other_boards[0].puzzle.target.centroid
       
-      for board in boards:
+      for board in other_boards:
         matches = False
       
         # check each rotation against each entry already in result.
         for rotation in range(0, 360, 90):
-          comparepoly = rotate(board.target, rotation, center)
+          comparepoly = rotate(board.remaining_target, rotation, center)
           for res in result:
-            if comparepoly.equals(res.target):
+            if comparepoly.equals(res.remaining_target):
               matches = True
               break
           if matches:
@@ -335,38 +349,42 @@ class BoardState:
 
     return result
 
+  # Plot the current board as a matplotlib-image and save to disk as an image. Images
+  # are named with a framenumber, optionally followed by a caption denoting wether this
+  # is a solution, a dead-end or an intermediate step. The remaining parameters can be
+  # used to further specify which type of a frame is being generated.
   def plot(self, caption = '', movingpart = None, candidatepositions = None, deadpart = None):
     
     global options
 
-    fig = plt.figure(1, figsize=(5,5), dpi=90)
+    fig = pyplot.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(1,1,1) # rows, columns, index
     
-    # no axes ticks
-    ax.yaxis.set_major_locator(plt.NullLocator())
-    ax.xaxis.set_major_formatter(plt.NullFormatter())
-    ax.yaxis.set_minor_locator(plt.NullLocator())
-    ax.xaxis.set_minor_formatter(plt.NullFormatter())
+    # No axes ticks
+    ax.yaxis.set_major_locator(pyplot.NullLocator())
+    ax.xaxis.set_major_formatter(pyplot.NullFormatter())
+    ax.yaxis.set_minor_locator(pyplot.NullLocator())
+    ax.xaxis.set_minor_formatter(pyplot.NullFormatter())
 
     xoffset = 0
     yoffset = 0
     
-    # plot the target polygon
-    if (self.target.geom_type == 'MultiPolygon') or (self.target.geom_type == 'Polygon'):
-      patch = PolygonPatch(self.target, facecolor='#cccccc')
+    # Plot the target polygon
+    if (self.remaining_target.geom_type == 'MultiPolygon') or (self.remaining_target.geom_type == 'Polygon'):
+      patch = PolygonPatch(self.remaining_target, facecolor='#cccccc')
       ax.add_patch(patch)
-      BoardState.extents = BoardState.extents.union(self.target)
+      BoardState.extents = BoardState.extents.union(self.remaining_target)
 
-    # plot the placed parts on top of the target
+    # Plot the placed parts on top of the target
     for part in self.parts_placed:
       polygon = part.finalpolygon()
       BoardState.extents = BoardState.extents.union(polygon)
       patch = PolygonPatch(polygon, facecolor=part.color)
       ax.add_patch(patch)
   
-    # plot the available parts off to the side.
+    # Plot the available parts in a grid off to the side.
     if self.parts_available:
-      bounds = self.target.bounds
+      bounds = self.remaining_target.bounds
       xoffset = bounds[0] # minx
       yoffset = bounds[1]-4 # miny and down from there
       for part in self.parts_available:
@@ -375,25 +393,27 @@ class BoardState:
         patch = PolygonPatch(polygon, facecolor=part.color)
         ax.add_patch(patch)
 
-        # is this the dead part?
+        # Is this the dead part? If so draw a red edge around it in its
+        # resting position.
         if deadpart and (deadpart.name == part.name):
           patch = PolygonPatch(polygon, facecolor=part.color, edgecolor='red')
           ax.add_patch(patch)
 
+        # Next cell in the grid
         xoffset = xoffset + 4
         if xoffset > 12:
           xoffset = 0
           yoffset = yoffset - 4
 
-    # plot the part that is on the move
+    # Plot the part that is currently on the move slightly ghosted.
     if movingpart:
-      #self.logger.debug('movingpart xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=movingpart.xoffset, yoffset=movingpart.yoffset, rotation=movingpart.rotation))
       polygon = movingpart.finalpolygon()
       BoardState.extents = BoardState.extents.union(polygon)
       patch = PolygonPatch(polygon, facecolor=movingpart.color, alpha=0.5)
       ax.add_patch(patch)
 
-    # plot candidatepositions
+    # Plot candidatepositions. These are drawn with a smaller alpha so we
+    # can see them overlap.
     if candidatepositions:
       for part in candidatepositions:
         polygon = part.finalpolygon()
@@ -401,6 +421,8 @@ class BoardState:
         patch = PolygonPatch(polygon, facecolor=part.color, alpha=0.2)
         ax.add_patch(patch)
 
+    # Update the overall bounds carried over from frame to frame. We want them
+    # to nicely align for montage.
     bounds = BoardState.extents.bounds
 
     ax.set_title('FridgeIQ')
@@ -415,9 +437,11 @@ class BoardState:
       figname += '_' + caption
     figname += '.png'
     fig.savefig(figname)
-    plt.close(fig)
+    pyplot.close(fig)
+    
     BoardState.framenr += 1
 
+# Quick check for overlapping boundary boxes before going in deep.
 def overlap(bounds1, bounds2):
   minx1 = bounds1[0]
   miny1 = bounds1[1]
@@ -440,6 +464,9 @@ def overlap(bounds1, bounds2):
   else:
     return True # overlapping
 
+# Main meat of the recursive solver. Called with a board state either identifies it as solved.
+# If not solved it generates candidate positions for available parts and can identify the board 
+# as a dead end if none are found. If candidate positions are found recurse for each of them.
 def solve(board):
 
   global finalpositions
@@ -451,7 +478,7 @@ def solve(board):
   indent = '  ' * len(board.parts_placed)
   
   if not board.parts_available:
-    # No more parts to place. We are done.
+    # No more parts to place. We have a solution!
     finalpositions += 1
     logger.info('Found a solution! Checked {finalpositions} final positions.'.format(
       finalpositions=finalpositions
@@ -466,13 +493,15 @@ def solve(board):
     if options.plotsolutions:
       board.plot('solution')
   else:
+    # There are parts left to place, we need to recurse further down.
+    #
     # Optimization: Check wether the smallest remaining disjoint area is still
     # applicable for the smallest part. If not we are already done with this whole
     # tree.
-    if board.target.geom_type == 'MultiPolygon':
-      min_target_area = min(board.target, key=lambda x: x.area).area
+    if board.remaining_target.geom_type == 'MultiPolygon':
+      min_target_area = min(board.remaining_target, key=lambda x: x.area).area
     else:
-      min_target_area = board.target.area 
+      min_target_area = board.remaining_target.area 
     
     min_part = min(board.parts_available, key=lambda x: x.polygon.area)
 
@@ -487,15 +516,18 @@ def solve(board):
       
       return
 
-    # pick the next part to place.
+    # Not a dead-end after the check for minimum disjoint area.
+
+    # Pick the next part to place. We use the area-wise biggest part next and 
+    # have sorted the catalog accordingly.
     nextpart = board.parts_available[0]
 
     # Generate all possible legal positions nextpart can go in. This is
     # done in a discrete fashion by scanning the bounding box of the candidate
     # part in steps over the bounds of the target and checking the conditions.
-    # The scanning happens in steps and is repeated for each possible 45 degree
+    # The scanning happens in steps and is repeated for each possible 90 degree
     # rotation.
-    targetbounds = board.target.bounds
+    targetbounds = board.remaining_target.bounds
     targetwidth = targetbounds[2]-targetbounds[0]
     targetheight = targetbounds[3]-targetbounds[1]
 
@@ -511,41 +543,40 @@ def solve(board):
       # Figure out the part bounds in that orientation. This will not change
       # during the scan.
       partbounds = poly.bounds
-      #logger.debug(indent + 'partbounds={partbounds}'.format(partbounds=partbounds));
       partwidth = partbounds[2]-partbounds[0]
       partheight = partbounds[3]-partbounds[1]
       
       # Initialize offsets so that the part is placed at the bottom-left
-      # corner of the target.
+      # corner of the target from its position agnostic catalog-state.
       initialxoffset = targetbounds[0]-partbounds[0]
       initialyoffset = targetbounds[1]-partbounds[1]
       
-      # scan over the width and height of the target bounds.
+      # Scan over the width and height of the target bounds.
       xoffset = 0
       while xoffset + partwidth <= targetwidth:
         yoffset = 0
-        while yoffset + partheight <= targetheight:
-          #logger.debug(indent + 'trying xoffset={xoffset}, yoffset={yoffset}, rotation={rotation}'.format(xoffset=xoffset, yoffset=yoffset, rotation=rotation))
-          
+        
+        while yoffset + partheight <= targetheight:          
           part.rotation = rotation
           part.xoffset = initialxoffset + xoffset
           part.yoffset = initialyoffset + yoffset
 
-          # What about this position?
+          # What about this position? Generate the polygon first.
           testpoly = part.finalpolygon()
 
-          # Condition 1:
-          # The candidate part has to be completely inside the target          
-          if board.target.contains(testpoly):
-            # We have removed all the area covered by parts already placed
-            # from the target. So we do not need to check for overlaps with
-            # placed parts, this is covered in condition 1.
-            # So we have a valid new legal position.                    
+          # To be a valid position the candidate part has to be completely 
+          # inside the remaining target geometry
+          #
+          # We have removed all the area covered by parts already placed
+          # from the target. So we do not need to check for overlaps with
+          # placed parts, this is already covered.          
+          if board.remaining_target.contains(testpoly):
             nextpart.candidatepositions.append(copy.copy(part))
 
           yoffset = yoffset + 1
         xoffset = xoffset + 1
-      
+
+    # If there are no candidate positions for a part, we have hit a dead end.
     if len(nextpart.candidatepositions) == 0:
       finalpositions += 1
       logger.debug(indent + 'Dead end: Found no candidate positions for part {name}. Checked {finalpositions} final positions.'.format(
@@ -557,21 +588,21 @@ def solve(board):
       
       return    
 
-    logger.debug(indent + 'Creating next boards for part {name} with {candidatepositions} candidate positions'.format(
-      name=nextpart.name,
-      candidatepositions=len(nextpart.candidatepositions)))
-
     # For each candidate position prepare a list of next boards by copying 
     # the current one. Remove the part we just (tentatively) placed from the list
     # of available parts. Append it to the placed parts and remove it from the 
     # target area.
+    logger.debug(indent + 'Creating next boards for part {name} with {candidatepositions} candidate positions'.format(
+      name=nextpart.name,
+      candidatepositions=len(nextpart.candidatepositions)))
+
     nextboards = []
     for candidate in nextpart.candidatepositions:    
       nextboard = copy.deepcopy(board)
       nextboard.parts_available = [part for part in nextboard.parts_available if part.name != nextpart.name]
       nextboard.candidateposition = candidate
       nextboard.parts_placed.append(candidate)
-      nextboard.target = nextboard.target.difference(candidate.finalpolygon())
+      nextboard.remaining_target = nextboard.remaining_target.difference(candidate.finalpolygon())
 
       nextboards.append(nextboard)
       
@@ -588,13 +619,14 @@ def solve(board):
     msg += ' next.'
     logger.debug(msg)
 
-    # update candidatepositions to include any filtering that has happened.
+    # Update candidatepositions to include any filtering that has happened.
     nextpart.candidatepositions = list(map(lambda board: board.candidateposition, nextboards))
-    
+
+    # If requested plot a frame with all remaining candidate positions displayed.    
     if options.plotcandidates:
       board.plot('candidatepositions', None, nextpart.candidatepositions)
 
-    # try each candidate position
+    # Now recurse down into each candidate board to find solutions.
     i = 1
     for nextboard in nextboards:        
       logger.debug(indent + '{parts_placed} of {parts_total} parts placed. Try next position {i} of {nextboards} for part {name}.'.format(
@@ -611,30 +643,34 @@ def solve(board):
       solve(nextboard)
       i += 1
 
+# Controller for preparing a puzzle and starting the solver.
 def solvepuzzle(puzzle):
 
   global options
   
   logger = logging.getLogger('solvepuzzle')
 
-  # Make a list of parts for the puzzle. Sort by descending area.
+  # Make a list of parts available for this puzzle. The puzzle configuration holds a string
+  # of part names, but we want the actual part objects. Then sort them by descending area
+  # so we try the larger ones first assuming that means we hit dead ends early.
   parts = [p for p in Puzzle.partscatalog if p.name in list(puzzle.parts)]
   parts.sort(key=lambda part: (part.polygon.area, part.name), reverse=True) 
 
   # Create the initial board state
   board = BoardState(puzzle, [], parts)
 
-  # Plot initial board state
+  # Plot the initial board state, this is the starting frame and shows all the parts
+  # next to the empty target.
   board.plot('setup')
 
-  # Print some information about the puzzle initial state
-  logger.debug('Target area={area}'.format(area=puzzle.target.area))
-  logger.debug('Parts available in descending order of area:')
+  # Print some information about the puzzle.
+  logger.info('Target area={area}'.format(area=puzzle.target.area))
+  logger.info('Parts available in descending order of area:')
   totalarea = 0
   for part in parts:
-    logger.debug('{name}: area={area}, distinct rotations={rotations}'.format(name=part.name, area=part.polygon.area, rotations=part.rotations))
+    logger.info('{name}: area={area}, distinct rotations={rotations}'.format(name=part.name, area=part.polygon.area, rotations=part.rotations))
     totalarea += part.polygon.area
-  logger.debug('Total area of parts={totalarea}'.format(totalarea=totalarea))
+  logger.info('Total area of parts={totalarea}'.format(totalarea=totalarea))
   if totalarea == puzzle.target.area:
     logger.debug('Total parts area matches target area. A valid puzzle.')
   else:
@@ -650,6 +686,7 @@ def create_puzzles():
   global puzzles
 
   puzzles = [
+    # Square challenges. The target area is simple to calculate.
     Puzzle('square_01', Puzzle.target_square(3), 'IJMR'),
     Puzzle('square_02', Puzzle.target_square(4), 'BDJNQSY'),
     Puzzle('square_03', Puzzle.target_square(4), 'ADJMNSY'),
@@ -662,14 +699,15 @@ def create_puzzles():
     Puzzle('square_10', Puzzle.target_square(6), 'ARELOMTSQDJBNYI'),
 
     # Rectangular challenges. Lists all integer-sided rectangles that can be
-    # made from the total area given by the prescribed parts list.
+    # made from the total area given by the prescribed parts list. All but one
+    # give valid solutions.
 
     # area = 8 = 2*2*2
     Puzzle('rectangle_01', Puzzle.target_rect(2*2, 2), 'ABDE'),
     
     # area = 12 = 2*2*3
     Puzzle('rectangle_02_a', Puzzle.target_rect(2, 2*3), 'IQRST'),
-    #Puzzle('rectangle_02_b', target_rect(2*2, 3), 'IQRST'), # Valid total area, no solution
+    #Puzzle('rectangle_02_b', target_rect(2*2, 3), 'IQRST'), # Valid total area but no solution
     
     # area = 15 = 5*3
     Puzzle('rectangle_03', Puzzle.target_rect(5, 3), 'DEIMOST'),
@@ -706,6 +744,7 @@ def create_puzzles():
     Puzzle('rectangle_10_c', Puzzle.target_rect(2*2, 2*5), Puzzle.allparts),
     Puzzle('rectangle_10_d', Puzzle.target_rect(2*5, 2*2), Puzzle.allparts),
 
+    # Triangular challenges. All equilateral rect-triangles.
     Puzzle('triangle_01', Puzzle.target_triangle(3), 'DIY'),            # area = 4.5  
     Puzzle('triangle_02', Puzzle.target_triangle(5), 'AIOST'),          # area = 12.5
     Puzzle('triangle_03', Puzzle.target_triangle(5), 'DJMSTY'),         # area = 12.5
@@ -717,6 +756,7 @@ def create_puzzles():
     Puzzle('triangle_09', Puzzle.target_triangle(8), 'ARELTSQDJBNYI'),  # area = 32
     Puzzle('triangle_10', Puzzle.target_triangle(8), 'ARELOMTSQDJBYI'), # area = 32
 
+    # Custom challenges.
     Puzzle('challenge_01', Puzzle.target_challenge_1(), Puzzle.allparts),
     Puzzle('challenge_02', Puzzle.target_challenge_2(), Puzzle.allparts),
     Puzzle('challenge_03', Puzzle.target_challenge_3(), Puzzle.allparts),
@@ -725,6 +765,7 @@ def create_puzzles():
     Puzzle('challenge_06', Puzzle.target_challenge_6(), Puzzle.allparts)
   ]
 
+# Set up argparse and get the command line options.
 def parse_commandline():
 
   global options
@@ -809,14 +850,14 @@ def parse_commandline():
 
   if not options.runfolder:
     options.runfolder = os.path.dirname(os.path.realpath(__file__)) + '\\' + options.puzzle_name + '_' + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
-      
+
+# Set up a logger each for a file in the output folder and the console.      
 def setup_logging():
   
   global options
   
   os.makedirs(options.runfolder)
 
-  # set up logging
   fh = logging.FileHandler(options.runfolder + '\\FridgeIQ.log')
   fh.setLevel(options.log_level_int)
 
@@ -831,6 +872,7 @@ def setup_logging():
   root.addHandler(fh)
   root.setLevel(logging.DEBUG)
 
+  # Silence logging from inside matplotlib
   logging.getLogger('matplotlib').setLevel(logging.INFO)
 
 def main():
@@ -845,8 +887,8 @@ def main():
   logger = logging.getLogger('main')
   logger.info('Starting. Output goes to {runfolder}'.format(runfolder=options.runfolder))
 
-  findpuzzle = list(filter(lambda puzzle: puzzle.name == options.puzzle_name, puzzles))
-  if not findpuzzle:
+  puzzle = list(filter(lambda puzzle: puzzle.name == options.puzzle_name, puzzles))
+  if not puzzle:
     raise ValueError('Puzzle name "{puzzle}" not found.'.format(puzzle=options.puzzle_name))
 
   logger.info('Attempting to solve puzzle "{puzzle}". This may take a while...'.format(puzzle=options.puzzle_name))
@@ -859,8 +901,6 @@ def main():
   endtime = datetime.datetime.now().replace(microsecond=0)
   runtime = (endtime-starttime)
   logger.info('Finished. Total runtime: {runtime}'.format(runtime=runtime))
-
-  #input('Press Enter to continue...')
     
 if __name__ == '__main__':
     main()

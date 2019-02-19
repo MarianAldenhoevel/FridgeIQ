@@ -1,8 +1,8 @@
 # Visual Studio Code generated files
 .vscode
 
-# Output-folders from previous runs of FridgeIQ, these have a timestamp as name: YYYY-MM-DD-hh-mm-ss
-src/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]
+# Output-folders from previous runs of FridgeIQ, these have a puzzlename and timestamp as name: puzzlename_YYYY-MM-DD-hh-mm-ss
+src/*_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]
 
 -
 nosession
