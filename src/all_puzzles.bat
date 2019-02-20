@@ -1,49 +1,48 @@
 REM Run FridgeIQ for all puzzles. Roughly in order of complexity
-python .\FridgeIQ.py --puzzle square_01
-python .\FridgeIQ.py --puzzle rectangle_01
-python .\FridgeIQ.py --puzzle triangle_01
-python .\FridgeIQ.py --puzzle triangle_02
-python .\FridgeIQ.py --puzzle triangle_03
-python .\FridgeIQ.py --puzzle square_02
-python .\FridgeIQ.py --puzzle square_03
-python .\FridgeIQ.py --puzzle square_04
-python .\FridgeIQ.py --puzzle rectangle_02_a
-python .\FridgeIQ.py --puzzle rectangle_03
-python .\FridgeIQ.py --puzzle triangle_04
-python .\FridgeIQ.py --puzzle triangle_05
-python .\FridgeIQ.py --puzzle rectangle_04_a
-python .\FridgeIQ.py --puzzle rectangle_04_b
-python .\FridgeIQ.py --puzzle square_05
-python .\FridgeIQ.py --puzzle rectangle_05_a
-python .\FridgeIQ.py --puzzle rectangle_05_b
-python .\FridgeIQ.py --puzzle triangle_06
-python .\FridgeIQ.py --puzzle square_06
-python .\FridgeIQ.py --puzzle rectangle_06_a
-python .\FridgeIQ.py --puzzle rectangle_06_b
-python .\FridgeIQ.py --puzzle triangle_07
-python .\FridgeIQ.py --puzzle square_07
-python .\FridgeIQ.py --puzzle rectangle_07_a
-python .\FridgeIQ.py --puzzle rectangle_07_b
-python .\FridgeIQ.py --puzzle rectangle_07_c
-python .\FridgeIQ.py --puzzle triangle_08
-python .\FridgeIQ.py --puzzle square_08
-python .\FridgeIQ.py --puzzle rectangle_08_a
-python .\FridgeIQ.py --puzzle rectangle_08_b
-python .\FridgeIQ.py --puzzle rectangle_08_c
-python .\FridgeIQ.py --puzzle triangle_09
-python .\FridgeIQ.py --puzzle square_09
-python .\FridgeIQ.py --puzzle rectangle_09_a
-python .\FridgeIQ.py --puzzle rectangle_09_b
-python .\FridgeIQ.py --puzzle triangle_10
-python .\FridgeIQ.py --puzzle square_10
-python .\FridgeIQ.py --puzzle rectangle_10_a
-python .\FridgeIQ.py --puzzle rectangle_10_b
-python .\FridgeIQ.py --puzzle rectangle_10_c
-python .\FridgeIQ.py --puzzle rectangle_10_d
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_01
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_01
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_01
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_02
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_03
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_02
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_03
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_04
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_02_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_03
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_04
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_05
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_04_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_04_b
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_05
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_05_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_05_b
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_06
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_06
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_06_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_06_b
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_07
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_07
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_07_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_07_b
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_07_c
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_08
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_08
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_08_a
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_08_b
+rem python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_09
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_09
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_09_a
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_09_b
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle triangle_10
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle square_10
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_10_a
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_10_b
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_10_c
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle rectangle_10_d
 
-python .\FridgeIQ.py --puzzle challenge_01
-python .\FridgeIQ.py --puzzle challenge_02
-python .\FridgeIQ.py --puzzle challenge_03
-python .\FridgeIQ.py --puzzle challenge_04
-python .\FridgeIQ.py --puzzle challenge_05
-python .\FridgeIQ.py --puzzle challenge_06
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_01
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_02
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_03
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_04
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_05
+python .\FridgeIQ.py --play-fanfare False --single-solution True --puzzle challenge_06

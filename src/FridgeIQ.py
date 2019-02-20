@@ -433,8 +433,8 @@ class BoardState:
     ax.set_aspect(1)
     
     figname = options.runfolder + '\\{n:05d}'.format(n=BoardState.framenr)
-    if caption:
-      figname += '_' + caption
+    if options.decorateframes and caption:
+      figname += '.' + caption
     figname += '.png'
     fig.savefig(figname)
     pyplot.close(fig)
@@ -491,7 +491,7 @@ def solve(board):
       wav.play()
 
     if options.plotsolutions:
-      board.plot('solution')
+      board.plot('solution')  
   else:
     # There are parts left to place, we need to recurse further down.
     #
@@ -641,6 +641,10 @@ def solve(board):
         nextboard.plot('try{i:02d}'.format(i=i), nextboard.candidateposition)
 
       solve(nextboard)
+
+      if solutions and options.singlesolution:
+        return
+
       i += 1
 
 # Controller for preparing a puzzle and starting the solver.
@@ -699,7 +703,7 @@ def create_puzzles():
     Puzzle('square_10', Puzzle.target_square(6), 'ARELOMTSQDJBNYI'),
 
     # Rectangular challenges. Lists all integer-sided rectangles that can be
-    # made from the total area given by the prescribed parts list. All but one
+    # made from the total area given by the prescribed parts list. Not all 
     # give valid solutions.
 
     # area = 8 = 2*2*2
@@ -732,7 +736,7 @@ def create_puzzles():
     # area = 30 = 3*5*2 
     Puzzle('rectangle_08_a', Puzzle.target_rect(3, 5*2), 'IJLMNORSTUY'),
     Puzzle('rectangle_08_b', Puzzle.target_rect(5, 3*2), 'IJLMNORSTUY'),
-    Puzzle('rectangle_08_c', Puzzle.target_rect(2, 5*3), 'IJLMNORSTUY'),
+    # Puzzle('rectangle_08_c', Puzzle.target_rect(2, 5*3), 'IJLMNORSTUY'), # Valid total area, no solution
 
     # area = 28 = 7*2*2
     Puzzle('rectangle_09_a', Puzzle.target_rect(7, 2*2), 'ABDJLMNRSUY'),
@@ -765,6 +769,15 @@ def create_puzzles():
     Puzzle('challenge_06', Puzzle.target_challenge_6(), Puzzle.allparts)
   ]
 
+# Conversion function for argparse booleans
+def str2bool(v):
+  if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    return True
+  elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    return False
+  else:
+    raise argparse.ArgumentTypeError('Boolean value expected.')
+
 # Set up argparse and get the command line options.
 def parse_commandline():
 
@@ -792,10 +805,19 @@ def parse_commandline():
     metavar = 'level'
   )
 
+  parser.add_argument('-ss', '--single-solution',
+    action = 'store',
+    default = False,
+    type = str2bool,
+    help ='Stop after the first solution found (default: %(default)s)',
+    dest ='singlesolution',
+    metavar = 'flag'
+  )
+
   parser.add_argument('-pc', '--plot-candidates',
     action = 'store',
     default = False,
-    type = bool,
+    type = str2bool,
     help = 'Output a frame showing all generated candidate positions shaded (default: %(default)s)',
     dest = 'plotcandidates',
     metavar = 'flag'
@@ -804,7 +826,7 @@ def parse_commandline():
   parser.add_argument('-pd', '--plot-deadends',
     action = 'store',
     default = False,
-    type = bool,
+    type = str2bool,
     help = 'Output a frame showing each dead-end position (default: %(default)s)',
     dest = 'plotdeadends',
     metavar = 'flag'
@@ -813,7 +835,7 @@ def parse_commandline():
   parser.add_argument('-ps', '--plot-solutions',
     action = 'store',
     default = True,
-    type = bool,
+    type = str2bool,
     help = 'Output a frame showing each solution (default: %(default)s)',
     dest = 'plotsolutions',
     metavar = 'flag'
@@ -822,9 +844,18 @@ def parse_commandline():
   parser.add_argument('-pb', '--plot-step-by-step',
     action = 'store',
     default = False,
-    type = bool,
+    type = str2bool,
     help = 'Output a frame showing each candidate position as it is tried (default: %(default)s)',
     dest = 'plotstepbystep',
+    metavar = 'flag'
+  )
+
+  parser.add_argument('-df', '--decorate-frames',
+    action = 'store',
+    default = True,
+    type = str2bool,
+    help = 'Add a bit to frame filenames that indicates what is in the frame (default: %(default)s)',
+    dest = 'decorateframes',
     metavar = 'flag'
   )
 
@@ -839,7 +870,7 @@ def parse_commandline():
   parser.add_argument('-pf', '--play-fanfare',
     action = 'store',
     default = True,
-    type = bool,
+    type = str2bool,
     help = 'Play a fanfare whenever a solution is found (default: %(default)s)',
     dest = 'playfanfare',
     metavar = 'flag'
@@ -896,7 +927,10 @@ def main():
   puzzle = list(filter(lambda puzzle: puzzle.name == options.puzzle_name, puzzles))[0]
   solvepuzzle(puzzle)
 
-  logger.info('{solutions} solutions found.'.format(solutions=solutions))
+  if solutions and options.singlesolution:
+    logger.info('Stopped after first solution.')
+  else:
+    logger.info('{solutions} solutions found.'.format(solutions=solutions))
 
   endtime = datetime.datetime.now().replace(microsecond=0)
   runtime = (endtime-starttime)
