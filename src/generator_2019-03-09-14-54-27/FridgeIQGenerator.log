@@ -1,0 +1,39 @@
+2019-03-09 14:54:27,042 (32) [INFO   ] main - Starting. Output goes to C:\Users\Marian Aldenhövel\Desktop\FridgeIQ\src\generator_2019-03-09-14-54-27
+2019-03-09 14:54:27,050 (32) [DEBUG  ] generate - Generating challenges for 16 parts (ARELOMTSQDJBNYIU) with total area 40.0 on a horizon of 4 (8x8 units).
+2019-03-09 14:54:27,050 (32) [DEBUG  ] generate - Splitting board into shards.
+2019-03-09 14:54:27,123 (32) [DEBUG  ] generate - Split board into 324 shards.
+2019-03-09 14:54:27,123 (32) [DEBUG  ] generate - Placing part A.
+2019-03-09 14:54:27,643 (32) [DEBUG  ] generate - Placed part A in 196 positions.
+2019-03-09 14:54:27,663 (32) [DEBUG  ] generate - Placing part R.
+2019-03-09 14:54:28,265 (32) [DEBUG  ] generate - Placed part R in 196 positions.
+2019-03-09 14:54:28,276 (32) [DEBUG  ] generate - Placing part E.
+2019-03-09 14:54:28,808 (32) [DEBUG  ] generate - Placed part E in 196 positions.
+2019-03-09 14:54:28,819 (32) [DEBUG  ] generate - Placing part L.
+2019-03-09 14:54:29,399 (32) [DEBUG  ] generate - Placed part L in 168 positions.
+2019-03-09 14:54:29,409 (32) [DEBUG  ] generate - Placing part O.
+2019-03-09 14:54:29,938 (32) [DEBUG  ] generate - Placed part O in 196 positions.
+2019-03-09 14:54:29,948 (32) [DEBUG  ] generate - Placing part M.
+2019-03-09 14:54:30,304 (32) [DEBUG  ] generate - Placed part M in 224 positions.
+2019-03-09 14:54:30,314 (32) [DEBUG  ] generate - Placing part T.
+2019-03-09 14:54:30,814 (32) [DEBUG  ] generate - Placed part T in 168 positions.
+2019-03-09 14:54:30,824 (32) [DEBUG  ] generate - Placing part S.
+2019-03-09 14:54:31,311 (32) [DEBUG  ] generate - Placed part S in 192 positions.
+2019-03-09 14:54:31,321 (32) [DEBUG  ] generate - Placing part Q.
+2019-03-09 14:54:31,548 (32) [DEBUG  ] generate - Placed part Q in 112 positions.
+2019-03-09 14:54:31,558 (32) [DEBUG  ] generate - Placing part D.
+2019-03-09 14:54:31,802 (32) [DEBUG  ] generate - Placed part D in 224 positions.
+2019-03-09 14:54:31,814 (32) [DEBUG  ] generate - Placing part J.
+2019-03-09 14:54:32,395 (32) [DEBUG  ] generate - Placed part J in 196 positions.
+2019-03-09 14:54:32,405 (32) [DEBUG  ] generate - Placing part B.
+2019-03-09 14:54:32,626 (32) [DEBUG  ] generate - Placed part B in 112 positions.
+2019-03-09 14:54:32,628 (32) [DEBUG  ] generate - Placing part N.
+2019-03-09 14:54:33,271 (32) [DEBUG  ] generate - Placed part N in 168 positions.
+2019-03-09 14:54:33,279 (32) [DEBUG  ] generate - Placing part Y.
+2019-03-09 14:54:33,658 (32) [DEBUG  ] generate - Placed part Y in 224 positions.
+2019-03-09 14:54:33,668 (32) [DEBUG  ] generate - Placing part I.
+2019-03-09 14:54:34,065 (32) [DEBUG  ] generate - Placed part I in 196 positions.
+2019-03-09 14:54:34,076 (32) [DEBUG  ] generate - Placing part U.
+2019-03-09 14:54:34,392 (32) [DEBUG  ] generate - Placed part U in 84 positions.
+2019-03-09 14:54:34,402 (32) [DEBUG  ] generate - Generating constraints to avoid overlap.
+2019-03-09 14:54:35,791 (32) [DEBUG  ] generate - Generating symmetry-constraints.
+2019-03-09 14:54:37,320 (32) [DEBUG  ] generate - Executing solver.

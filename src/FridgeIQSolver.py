@@ -932,7 +932,7 @@ def setup_logging():
   
   os.makedirs(options.runfolder, exist_ok = True)
 
-  fh = logging.FileHandler(options.runfolder + '\\FridgeIQ.log')
+  fh = logging.FileHandler(options.runfolder + '\\FridgeIQSolver.log')
   fh.setLevel(options.log_level_int)
 
   ch = logging.StreamHandler()
