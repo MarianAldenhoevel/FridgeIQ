@@ -2,7 +2,11 @@
 '''
 @author: Marian Aldenhövel <marian.aldenhoevel@marian-aldenhoevel.de>
 '''
+# This is a program to generate symmetric challenges_found for the FridgeIQ puzzle.
+# It uses the z3 SAT/SMT solver for the heavy lifting.
 
+import random
+import re
 import math
 import logging
 import os
@@ -28,7 +32,7 @@ from matplotlib import pyplot
 
 # Global variables
 starttime = datetime.datetime.now().replace(microsecond=0)
-challenges = 0
+challenges_found = 0
 options = None
 
 # Part encapsulates a single part in the puzzle. It has geometry as a shapely.geometry.polygon which is
@@ -36,6 +40,9 @@ options = None
 #
 # When a Part is constructed __init__ checks the geometry to see in which of the 90-degree rotations it
 # has distinct geometry. This list is also kept with the Part.
+#
+# Parts also hold a list of shards they cover. While this could be determined from the geometry I chose
+# to use geometry for drawing and a discrete naming-scheme for the shards and make both by hand.
 class Part:
 
   def __init__(self, name, polygon, color, shards):
@@ -60,7 +67,7 @@ class Part:
 # and south of the square, meeting with their apexes at the center. Either zero,
 # two or four of those will be covered at any time.
 # Shards are described by the y- and y-position of the bottom-left corner of the 
-# grid square the a one-letter abbreviation of the direction.
+# grid square and the a one-letter abbreviation of the direction.
 class Shard:
 
   logger = logging.getLogger('Shard')
@@ -70,6 +77,20 @@ class Shard:
   def makename(cls, xoffset, yoffset, direction):
     return '({x})-({y})-{direction}'.format(x=xoffset, y=yoffset, direction=direction)
    
+  # Make a Shard from a canonical name, used in unit-testing.
+  @classmethod
+  def makeshard(cls, name):
+
+    # Split the canonical name using a regular expression
+    match = re.match(r'\((-?\d)\)-\((-?\d)\)-(.)', name)
+    xoffset = int(match.group(1))
+    yoffset = int(match.group(2))  
+    direction = match.group(3)
+
+    # Create a new shard with the same elements. This will thus have the same
+    # canonical name.
+    return Shard(xoffset, yoffset, direction)
+  
   def __init__(self, xoffset, yoffset, direction):
     self.name = self.makename(xoffset, yoffset, direction)
     self.xoffset = xoffset
@@ -77,6 +98,10 @@ class Shard:
     self.direction = direction
     self.placements = []
 
+    # Make shapely geometry for the shard so we can plot it. To do that
+    # find the four corners of the grid square and the midpoint. Then,
+    # depending on the direction of the shard, pick the four points for
+    # a shapely polygon.
     bl = Point(xoffset,        yoffset)
     br = Point(xoffset + 1,    yoffset)
     tr = Point(xoffset + 1,    yoffset + 1)
@@ -85,12 +110,12 @@ class Shard:
     
     if direction == "n":
       points = [mid, tr, tl, mid]
+    elif direction == "e":
+      points = [mid, tr, br, mid]
     elif direction == "w":
       points = [mid, tl, bl, mid]
     elif direction == "s":
       points = [mid, bl, br, mid]
-    elif direction == "e":
-      points = [mid, tr, br, mid]
       
     self.polygon = Polygon([[p.x, p.y] for p in points])
     
@@ -121,8 +146,9 @@ class Shard:
 
     return Shard(x + xoffset, y + yoffset, direction)
 
-  # Return the name of the shard that is horizontally mirrored across from here
-  def mirrory(self):
+  # Return the name of the shard that is horizontally mirrored across from here.
+  # Version for even symmetry.
+  def mirror_e_w_even(self):
     xoffset = -self.xoffset - 1
     yoffset = self.yoffset
 
@@ -136,7 +162,8 @@ class Shard:
     return Shard.makename(xoffset, yoffset, direction)
 
   # Return the name of the shard that is vertically mirrored up/down from here
-  def mirrorx(self):
+  # Version for even symmetry.
+  def mirror_n_s_even(self):
     xoffset = self.xoffset
     yoffset = -self.yoffset - 1
     
@@ -150,7 +177,8 @@ class Shard:
     return Shard.makename(xoffset, yoffset, direction)
 
   # Return the name of the shard that is mirrored across the sw-ne-diagonal
-  def mirrorswne(self):
+  # Version for even symmetry.
+  def mirror_sw_ne_even(self):
     xoffset = self.yoffset
     yoffset = self.xoffset
 
@@ -168,9 +196,10 @@ class Shard:
     return Shard.makename(xoffset, yoffset, direction)
 
   # Return the name of the shard that is mirrored across the nw-se-diagonal
-  def mirrornwse(self):
-    xoffset = -self.xoffset - 1
-    yoffset = -self.yoffset - 1
+  # Version for even symmetry.
+  def mirror_nw_se_even(self):
+    xoffset = -self.yoffset - 1
+    yoffset = -self.xoffset - 1
 
     if self.direction == "n":
       direction = "w"
@@ -185,12 +214,85 @@ class Shard:
 
     return Shard.makename(xoffset, yoffset, direction)
 
-# Wraps a list and gives it a fluent API for building shardlists.
+  # Return the name of the shard that is horizontally mirrored across from here
+  # Version for odd symmetry.
+  def mirror_e_w_odd(self):
+    xoffset = -self.xoffset
+    yoffset = self.yoffset
+
+    if self.direction == "w":
+      direction = "e"
+    elif self.direction == "e":
+      direction = "w"
+    else:
+      direction = self.direction
+
+    return Shard.makename(xoffset, yoffset, direction)
+
+  # Return the name of the shard that is vertically mirrored up/down from here
+  # Version for odd symmetry.
+  def mirror_n_s_odd(self):
+    xoffset = self.xoffset
+    yoffset = -self.yoffset
+    
+    if self.direction == "n":
+      direction = "s"
+    elif self.direction == "s":
+      direction = "n"
+    else:
+      direction = self.direction
+
+    return Shard.makename(xoffset, yoffset, direction)
+
+  # Return the name of the shard that is mirrored across the sw-ne-diagonal
+  # Version for odd symmetry.
+  def mirror_sw_ne_odd(self):
+    xoffset = self.yoffset
+    yoffset = self.xoffset
+
+    if self.direction == "n":
+      direction = "e"
+    elif self.direction == "e":
+      direction = "n"
+    elif self.direction == "w":
+      direction = "s"
+    elif self.direction == "s":
+      direction = "w"
+    else:
+      direction = self.direction
+
+    return Shard.makename(xoffset, yoffset, direction)
+
+  # Return the name of the shard that is mirrored across the nw-se-diagonal
+  # Version for odd symmetry.
+  def mirror_nw_se_odd(self):
+    xoffset = -self.yoffset
+    yoffset = -self.xoffset
+
+    if self.direction == "n":
+      direction = "w"
+    elif self.direction == "w":
+      direction = "n"
+    elif self.direction == "e":
+      direction = "s"
+    elif self.direction == "s":
+      direction = "e"
+    else:
+      direction = self.direction
+
+    return Shard.makename(xoffset, yoffset, direction)
+
+# Wraps a list and gives it a fluent API for building lists of shards that
+# become part of the description of parts.
 class ShardList:
 
   def __init__(self):
     self.list = []
     
+  # Add up to four new shards to the list. If directions is ommited the
+  # complete grid square indexed by xoffset and yoffset is covered by
+  # four shards. If directions is given parts of that square can be covered
+  # by less then four.
   def append(self, xoffset, yoffset, directions = "news"):
     for  direction in list(directions):
       self.list.append(Shard(xoffset, yoffset, direction))
@@ -207,6 +309,9 @@ class ShardList:
     
     return result
 
+# Build the catalog of parts that are in the FridgeIQ box.
+# For each the visible geometry and the list of shards in their resting
+# position is created. 
 partscatalog = [
     Part('A', Polygon([(0, 0), (1, 0), (1, 1), (2, 1), (1, 2), (0, 2), (0, 0)]), 'firebrick', ShardList().append(0, 0).append(0, 1).append(1, 1, "ws")),
     Part('R', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (0, 1), (1, 1), (1, 0)]), 'green', ShardList().append(1, 0).append(1, 1).append(0, 1, "se")),
@@ -232,6 +337,8 @@ allparts = ''.join(map(lambda part: part.name, partscatalog))
 # includes rotation and x- and y-position. Also holds geometry for the part
 # in case we want to plot it later. And it keeps a list of shards that the
 # part covers in this position.
+# The final member of a Placement is a z3-Bool that indicates whether the
+# part is actually at this placement or not in a solution.
 class Placement:
 
   logger = logging.getLogger('Placement')
@@ -270,10 +377,10 @@ def str2bool(v):
 def parse_commandline():
 
   global options
-  global challenges
+  global challenges_found
 
   parser = argparse.ArgumentParser(
-      description = 'Generate FridgeIQ-challenges.', 
+      description = 'Generate FridgeIQ-challenges from a list of parts and a maximum size of playing field.', 
   )
 
   parser.add_argument('-ll', '--log-level',
@@ -303,7 +410,7 @@ def parse_commandline():
 
   parser.add_argument('-ho', '--horizon',
     action = 'store',
-    default = 4,
+    default = 5,
     type = int,
     help = 'Half field-size (maximum absolute value of coordinates) to take into account (default: %(default)s)',
     dest = 'horizon',
@@ -318,6 +425,14 @@ def parse_commandline():
     metavar = 'string'
   )
 
+  parser.add_argument('-ss', '--save-state',
+    action = 'store',
+    default = 'Solver-State.smt2',
+    help = 'If set saves and restores solver-state to and from the file. Attention! This can collide with other commandline-parameters and only works on similar setups (default: %(default)s)',
+    dest = 'savestate',
+    metavar = 'filename'
+  )
+
   parser.add_argument('-sa', '--save-all',
     action = 'store',
     default = False,
@@ -327,11 +442,50 @@ def parse_commandline():
     metavar = 'flag'
   )
 
+  parser.add_argument('-es', '--even-size',
+    action = 'store',
+    default = True,
+    help = 'Generate challenges_found with even sizes (default: %(default)s)',
+    dest = 'evensize',
+    metavar = 'flag'
+  )
+
+  parser.add_argument('-os', '--odd-size',
+    action = 'store',
+    default = True,
+    help = 'Generate challenges_found with odd sizes (default: %(default)s)',
+    dest = 'oddsize',
+    metavar = 'flag'
+  )
+
+  parser.add_argument('-zp', '--z3-parallel',
+    action = 'store',
+    default = True,
+    help = 'Enable z3 parallel tactic (default: %(default)s)',
+    dest = 'z3_parallel',
+    metavar = 'flag'
+  )
+
   options = parser.parse_args()
   options.log_level_int = getattr(logging, options.log_level, logging.INFO)
 
   if not options.runfolder:
     options.runfolder = os.path.dirname(os.path.realpath(__file__)) + '\\generator_' + time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
+  else:
+    # If outputfolder is relative make it absolute to the script  
+    if not os.path.isabs(options.runfolder):
+      scriptdir = os.path.dirname(os.path.realpath(__file__))
+      options.runfolder = os.path.abspath(os.path.join(scriptdir, options.runfolder))
+
+  if options.savestate:
+    # Add .smt2 extension unless an extension is already given.
+    ext = os.path.splitext(options.savestate)[1]
+    if not ext:
+      options.savestate = options.savestate + '.smt2'
+
+    # If save state is a relative path make it absolute to the output folder  
+    if not os.path.isabs(options.savestate):
+      options.savestate = os.path.abspath(os.path.join(options.runfolder, options.savestate))
 
 # Set up a logger each for a file in the output folder and the console.      
 def setup_logging():
@@ -357,16 +511,27 @@ def setup_logging():
   # Silence logging from inside matplotlib
   logging.getLogger('matplotlib').setLevel(logging.INFO)
 
+# Plot a playing field. challengeid is the name for the challenge and built
+# from the collection of shards covered. So it will be the same regardless
+# of multiple ways to cover them with parts. Solutionid is built from the individual
+# placements of parts, so it is unique to the solution itself. Solutionid can be
+# passed empty in which case only the gray challenge is plotted. Placements is the
+# list of parts as placed to make that solution. This includes their geometry and
+# the shards they cover.
 def plot(challengeid, solutionid, placements):
 
   global options
-
+  global challenges_found
+  
   logger = logging.getLogger('plot')
 
+  # Build a filename for the frame. All frames go into the current output folder and
+  # are prefixed by the fingerprint of the challenge.
   figname = options.runfolder + '\\' + challengeid
   if solutionid:
     if options.saveall:
-      # When saving all solutions give the frame a unique name.
+      # When saving all solutions give the frame a unique name for each
+      # solution of the same challenge.
       figname += '-' + solutionid
     else:
       # When saving a single solution give the frame a name that will 
@@ -374,14 +539,14 @@ def plot(challengeid, solutionid, placements):
       figname += '-solution'
   else:
     figname += '-challenge' 
-  figname += '.png'
+  figname += '.svg'
 
   # We have made sure that a frames content is uniquely identified by its
   # name on disk. So if it exists there is no point in recreating it.
   if (os.path.isfile(figname)):
-    logger.debug("Plot \"{figname}\" exists.".format(figname =  os.path.basename(figname)))
+    logger.debug("Plot \"{figname}\" exists.".format(figname = os.path.splitext(os.path.basename(figname))[0]))
   else:    
-    logger.debug("Creating plot \"{figname}\".".format(figname =  os.path.basename(figname)))
+    logger.debug("Creating plot \"{figname}\".".format(figname =  os.path.splitext(os.path.basename(figname))[0]))
     
     fig = pyplot.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(1,1,1) # rows, columns, index
@@ -414,28 +579,45 @@ def plot(challengeid, solutionid, placements):
     
     # If we are saving a challenge we have found a new one. Celebrate!
     if (not solutionid):
-        challenges = challenges + 1
-        if options.playfanfare:
-          wav = simpleaudio.WaveObject.from_wave_file(os.path.dirname(os.path.realpath(__file__)) + '\\fanfare.wav')
-          wav.play()
+      challenges_found = challenges_found + 1
+      if options.playfanfare:
+        wav = simpleaudio.WaveObject.from_wave_file(os.path.dirname(os.path.realpath(__file__)) + '\\fanfare.wav')
+        wav.play()
 
-    fig.savefig(figname)
+    fig.savefig(figname, format = "svg")
+
+    figname = os.path.splitext(figname)[0] + ".png"
+    fig.savefig(figname, format = "png")
     
     pyplot.close(fig)
-    
+
+# A simple wrapper for hashing to fingerprint challenges and solutions.   
 def hash(string):
   m = hashlib.md5()
   m.update(string.encode("UTF-8"))
   return m.hexdigest()
 
-def addsymmetryconstraint(solver, symmetryconstraints, shards, mename, me, othername):
+# Make a list of 
+def makesymmetryconstraint(symmetryconstraints, shards, mename, me, othername):
+  
+  result = None
+
+  # Have we already created exactly this constraint or its symmetric partner? If so skip it.
   if (not (mename + "|" + othername) in symmetryconstraints) and (not (othername + "|" + mename) in symmetryconstraints): 
+    # Does the target-shard even exist? It may be outside the horizon.
     if othername in shards:
-      other = z3.Or([x for x in list(map(lambda placement: placement.x, shards[othername].placements))])
-      #other = z3.Or([z3.eq(x,True) for x in list(map(lambda placement: placement.x, shards[othername].placements))])
-      solver.add(me == other)
+      if shards[othername].placements:        
+        # Create a constraint that says the mename-shard must be covered or uncovered in
+        # the same state as the othername shard for this to be a symmetric challenge.
+        other = z3.Or([x for x in list(map(lambda placement: placement.x, shards[othername].placements))])
+        result = (me == other)
+    
+    # Remember that we have asserted this constraint already and do not need to create
+    # it again. Not even in the other direction.
     symmetryconstraints[mename + "|" + othername] = True
     symmetryconstraints[othername + "|" + mename] = True
+
+  return result
 
 def generate():
   
@@ -445,7 +627,7 @@ def generate():
 
   parts = [p for p in partscatalog if p.name in list(options.partslist)]
   area = sum(map(lambda part: part.polygon.area, parts)) 
-  logger.debug('Generating challenges for {partcount} parts ({partslist}) with total area {area} on a horizon of {horizon} ({n}x{n} units).'.format(
+  logger.info('Generating challenges_found for {partcount} parts ({partslist}) with total area {area} on a horizon of {horizon} ({n}x{n} units).'.format(
     partcount = len(parts),
     partslist = options.partslist,
     area = area,
@@ -454,6 +636,7 @@ def generate():
   )
 
   # Set up a Z3 solver to accept constraints
+  z3.set_param('parallel.enable', options.z3_parallel)
   solver = z3.Solver()
 
   # Generate a list of all the shards that make up the square between -horizon and +horizon
@@ -468,7 +651,7 @@ def generate():
         shards[shard.name] = shard
   logger.debug('Split board into {n} shards.'.format(n=len(shards)))
     
-  # For each part generate all possible solutions and a boolean variable for each. These we 
+  # For each part generate all possible placements and a boolean variable for each. These we 
   # call by the name of the part with indexes for the x and y offset and the degrees of rotation.
   for part in parts:
     
@@ -514,27 +697,92 @@ def generate():
 
   # Symmetry. For each shard add a constraint that its coverage must be the same as that
   # of all its symmetry-partners.
-  logger.debug('Generating symmetry-constraints.')
-  symmetryconstraints = {}
+  #
+  # We do this twice because we can have two kinds of challenges. Those with even symmetry have
+  # bounding boxes of even side-length and the square (0,0) sits to the right of the 
+  # north-south-symmetry axis and on top of the east-west-axis. Those with odd symmetry have
+  # these axes passing through the middle of the (0,0)-square. 
+  symmetryconstraints_even = {}
+  symmetryconstraints_odd = {}
+
+  oddconstraints = []
+  evenconstraints = []
+
+  logger.debug('Generating constraints for even symmetry.')
   for shard in shards.values():
     if (shard.xoffset >= 0) and (shard.yoffset >= 0): 
       me = z3.Or([x for x in list(map(lambda placement: placement.x, shard.placements))])
-      #me = z3.Sum([z3.If(x,1,0) for x in list(map(lambda placement: placement.x, shard.placements))])
       
-      mirroryname = Shard.mirrory(shard)
-      addsymmetryconstraint(solver, symmetryconstraints, shards, shard.name, me, mirroryname)
-      
-      mirrorxname = Shard.mirrorx(shard)
-      addsymmetryconstraint(solver, symmetryconstraints, shards, shard.name, me, mirrorxname)
-      
-      mirrorswnename = Shard.mirrorswne(shard)
-      addsymmetryconstraint(solver, symmetryconstraints, shards, shard.name, me, mirrorswnename)
-      
-      mirrornwsename = Shard.mirrornwse(shard)
-      addsymmetryconstraint(solver, symmetryconstraints, shards, shard.name, me, mirrornwsename)
+      if options.evensize:        
+        mirror_e_w_even_name = Shard.mirror_e_w_even(shard)
+        con = makesymmetryconstraint(symmetryconstraints_even, shards, shard.name, me, mirror_e_w_even_name)
+        if (con != None):
+          evenconstraints.append(con)
+
+        mirror_n_s_even_name = Shard.mirror_n_s_even(shard)
+        con = makesymmetryconstraint(symmetryconstraints_even, shards, shard.name, me, mirror_n_s_even_name)
+        if (con != None):
+          evenconstraints.append(con)
+
+        mirror_sw_ne_even_name = Shard.mirror_sw_ne_even(shard)
+        con = makesymmetryconstraint(symmetryconstraints_even, shards, shard.name, me, mirror_sw_ne_even_name)
+        if (con != None):
+          evenconstraints.append(con)
+
+        mirror_nw_se_evenname = Shard.mirror_nw_se_even(shard)
+        con = makesymmetryconstraint(symmetryconstraints_even, shards, shard.name, me, mirror_nw_se_evenname)
+        if (con != None):
+          evenconstraints.append(con)
+
+  logger.debug('Generating constraints for odd symmetry.')
+  for shard in shards.values():
+    if (shard.xoffset >= 0) and (shard.yoffset >= 0): 
+      me = z3.Or([x for x in list(map(lambda placement: placement.x, shard.placements))])
+  
+      if options.oddsize:      
+        mirror_e_w_oddname = Shard.mirror_e_w_odd(shard)
+        con = makesymmetryconstraint(symmetryconstraints_odd, shards, shard.name, me, mirror_e_w_oddname)
+        if (con != None):
+          oddconstraints.append(con)
+
+        mirror_n_s_oddname = Shard.mirror_n_s_odd(shard)
+        con = makesymmetryconstraint(symmetryconstraints_odd, shards, shard.name, me, mirror_n_s_oddname)
+        if (con != None):
+          oddconstraints.append(con)
+
+        mirror_sw_ne_oddname = Shard.mirror_sw_ne_odd(shard)
+        con = makesymmetryconstraint(symmetryconstraints_odd, shards, shard.name, me, mirror_sw_ne_oddname)
+        if (con != None):
+          oddconstraints.append(con)
+
+        mirror_nw_se_oddname = Shard.mirror_nw_se_odd(shard)
+        con = makesymmetryconstraint(symmetryconstraints_odd, shards, shard.name, me, mirror_nw_se_oddname)
+        if (con != None):
+          oddconstraints.append(con)
+
+  if options.evensize and options.oddsize:
+    even = z3.And(evenconstraints)
+    odd = z3.And(oddconstraints)
+    even_or_odd = z3.Or(even, odd)
+    solver.add(even_or_odd)
+  elif options.evensize:
+    solver.add(z3.And(evenconstraints))
+  elif options.oddsize:
+    solver.add(z3.And(oddconstraints))
+  
+  # If we have a save-state file we ignore all of the above and use whatever is in there.
+  # Hopefully this restarts the solving at the last point we saved it. Which is just
+  # after we add a fresh blocking clause.
+  # Caution: This ignores all other commandline settings so only do it if you are certain
+  # that you are actually running the same problem!
+  if options.savestate:
+    if (os.path.isfile(options.savestate)):
+      logger.warn('Reading saved state from "{savestate}"'.format(savestate = options.savestate))
+      solver.reset()
+      solver.from_file(options.savestate)
       
   # Now let the solver loose
-  logger.debug('Executing solver.')
+  logger.info('Executing solver.')
   verdict = solver.check()
   logger.debug('Solver verdict is: "{verdict}".'.format(verdict = verdict))
   
@@ -558,7 +806,7 @@ def generate():
     # plot the pattern and the solution.
     trueplacements = []
     trueplacementnames = []
-    shardnames = []
+    trueshardnames = []
 
     for part in parts:
       for placement in part.placements:
@@ -573,26 +821,58 @@ def generate():
           trueplacements.append(placement)
           trueplacementnames.append(placement.xname)
           for shard in placement.shards.list:
-            shardnames.append(shard.name)
+            trueshardnames.append(shard.name)
 
           break # There can be only one placement evaluating to true per part.
 
-    shardnames.sort()
-    challengeid = hash("|".join(shardnames))
+    trueshardnames.sort()
+    challengeid = hash("|".join(trueshardnames))
     
     trueplacementnames.sort()
     solutionid = hash("|".join(trueplacementnames))
 
-    # Plot the challenge (might overwrite if that same geometry already exists)
-    # and then plot the solution which may be different.
+    # Plot the challenge and then plot the solution which may be different.
+    # Within plot() there is code that finally decides on a filename and wether
+    # it needs to be generated or not. 
     plot(challengeid, "", trueplacements)
     plot(challengeid, solutionid, trueplacements)
 
-    # Add a blocking clause for this model.
-    
-    logger.debug('Add blocking clause.')
-    solver.add(z3.Or([ p.x == False for p in trueplacements]))
-    
+    # Add a blocking clause for this model so we can look for the next solution.
+    logger.debug('Add blocking clause for specific placement.')
+    blockingclause = z3.Not(z3.And([ p.x for p in trueplacements ]))
+    logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
+    solver.add(blockingclause)
+
+    # The blocking clause above will generate either a new challenge or
+    # a new solution to a known challenge. If we are not interested in all
+    # solutions we can create a blocking clause that excludes any solution
+    # resulting in the same shape.
+    # To do we need to OR all placements that include one of the trueshards
+    # and NOT AND them. 
+    if not options.saveall:
+      logger.debug('Add blocking clause for specific challenge.')
+
+      shardconstraints = []
+      for shardname in trueshardnames:
+        # Find all the placements that include this shard.
+        shard = shards[shardname]
+        # For this shard to be covered means the OR of all the placements on it is true
+        shardconstraints.append(z3.Or([ p.x for p in shard.placements ]))
+
+      # For the same shape to be produced all of these must be true, but we want
+      # the opposite.
+      blockingclause = z3.Not(z3.And(shardconstraints))
+      logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
+      solver.add(blockingclause)
+      
+    # If asked for it save the state of the solver now.
+    if options.savestate:
+      logger.debug('Save new solver state.')
+      smt2 = solver.sexpr()
+      with open(options.savestate, mode='w', encoding='ascii') as f: # overwrite
+        f.write(smt2)
+        f.close()
+
     # Recheck to get another.
     logger.debug('Executing solver.')
     verdict = solver.check()
@@ -601,7 +881,7 @@ def generate():
 def main():
   
   global options
-  global challenges
+  global challenges_found
   
   parse_commandline()
   setup_logging()
@@ -609,12 +889,75 @@ def main():
   logger = logging.getLogger('main')
   logger.info('Starting. Output goes to {runfolder}'.format(runfolder=options.runfolder))
 
+  # Hardcoded settings for debugging overriding the commandline:
+  
+  #options.savestate = 'C:\\Users\\Marian Aldenhövel\\Desktop\\FridgeIQ\\src\savestate.smt2'
+
+  # Even square:
+  #options.horizon = 3
+  #options.partslist = 'AIJMOQS'
+
+  # Odd square
+  #options.horizon = 3
+  #options.partslist = 'IJMR'
+
+  # Odd square
+  #options.horizon = 3
+  #options.partslist = 'ABDEIMNYRST'
+
+  #z3.set_option('auto_config', False)
+  #z3.set_option('smt.phase_selection',5)
+
   # Call the generator
   generate()
   
   endtime = datetime.datetime.now().replace(microsecond=0)
   runtime = (endtime-starttime)
-  logger.info('Finished. Found {challenges} different challenges. Total runtime: {runtime}'.format(challenges=challenges, runtime=runtime))
-    
+  logger.info('Finished. Found {challenges_found} different challenges. Total runtime: {runtime}'.format(challenges_found=challenges_found, runtime=runtime))
+
+# Poor man's unit tests
+def tests():
+  
+  logger = logging.getLogger('tests')
+
+  shard = Shard(1, 3, "n") # (1)-(3)-n
+  assert Shard.mirror_e_w_even(shard) == '(-2)-(3)-n'
+  assert Shard.mirror_n_s_even(shard) == '(1)-(-4)-s'
+  assert Shard.mirror_nw_se_even(shard) == '(-4)-(-2)-w'
+  assert Shard.mirror_sw_ne_even(shard) == '(3)-(1)-e'
+
+  shard = Shard(1, 1, "n") # (1)-(1)-n
+  assert Shard.mirror_e_w_even(shard) == '(-2)-(1)-n'
+  assert Shard.mirror_n_s_even(shard) == '(1)-(-2)-s'
+  assert Shard.mirror_nw_se_even(shard) == '(-2)-(-2)-w'
+  assert Shard.mirror_sw_ne_even(shard) == '(1)-(1)-e'
+
+  shard = Shard(1, 1, "e") # (1)-(1)-e
+  assert Shard.mirror_e_w_even(shard) == '(-2)-(1)-w'
+  assert Shard.mirror_n_s_even(shard) == '(1)-(-2)-e'
+  assert Shard.mirror_nw_se_even(shard) == '(-2)-(-2)-s'
+  assert Shard.mirror_sw_ne_even(shard) == '(1)-(1)-n'
+
+  shard = Shard(1, 1, "w") # (1)-(1)-w
+  assert Shard.mirror_e_w_even(shard) == '(-2)-(1)-e'
+  assert Shard.mirror_n_s_even(shard) == '(1)-(-2)-w'
+  assert Shard.mirror_nw_se_even(shard) == '(-2)-(-2)-n'
+  assert Shard.mirror_sw_ne_even(shard) == '(1)-(1)-s'
+
+  shard = Shard(1, 1, "s") # (1)-(1)-s
+  assert Shard.mirror_e_w_even(shard) == '(-2)-(1)-s'
+  assert Shard.mirror_n_s_even(shard) == '(1)-(-2)-n'
+  assert Shard.mirror_nw_se_even(shard) == '(-2)-(-2)-e'
+  assert Shard.mirror_sw_ne_even(shard) == '(1)-(1)-w'
+
+  shard = Shard(1, 2, "n") # (1)-(2)-n
+  assert Shard.mirror_e_w_odd(shard) == '(-1)-(2)-n'
+  assert Shard.mirror_n_s_odd(shard) == '(1)-(-2)-s'
+  assert Shard.mirror_nw_se_odd(shard) == '(-2)-(-1)-w'
+  assert Shard.mirror_sw_ne_odd(shard) == '(2)-(1)-e'
+  
+  logger.debug('All unit tests passed.')
+
 if __name__ == '__main__':
+  #tests()
   main()
