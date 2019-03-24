@@ -427,7 +427,7 @@ def parse_commandline():
 
   parser.add_argument('-ss', '--save-state',
     action = 'store',
-    default = 'Solver-State.smt2',
+    default = '', # Solver-State.smt2',
     help = 'If set saves and restores solver-state to and from the file. Attention! This can collide with other commandline-parameters and only works on similar setups (default: %(default)s)',
     dest = 'savestate',
     metavar = 'filename'
@@ -653,6 +653,8 @@ def generate():
     
   # For each part generate all possible placements and a boolean variable for each. These we 
   # call by the name of the part with indexes for the x and y offset and the degrees of rotation.
+  constraints = []
+
   for part in parts:
     
     logger.debug('Placing part {name}.'.format(name=part.name))
@@ -687,13 +689,13 @@ def generate():
 
     # Add a constraint that we want each part to appear in exactly one of
     # the placements we determined.
-    solver.add( z3.PbEq([(x,1) for x in list(map(lambda placement: placement.x, part.placements))], 1) )
+    constraints.append( z3.PbEq([(x,1) for x in list(map(lambda placement: placement.x, part.placements))], 1) )
 
   # For each shard add a constraint that we want it to be covered by zero or one of the
   # parts. This removes overlap.
   logger.debug('Generating constraints to avoid overlap.')
   for shard in shards.values():
-    solver.add( z3.PbLe([(x,1) for x in list(map(lambda placement: placement.x, shard.placements))], 1) ) 
+    constraints.append( z3.PbLe([(x,1) for x in list(map(lambda placement: placement.x, shard.placements))], 1) ) 
 
   # Symmetry. For each shard add a constraint that its coverage must be the same as that
   # of all its symmetry-partners.
@@ -764,12 +766,16 @@ def generate():
     even = z3.And(evenconstraints)
     odd = z3.And(oddconstraints)
     even_or_odd = z3.Or(even, odd)
-    solver.add(even_or_odd)
+    constraints.append(even_or_odd)
   elif options.evensize:
-    solver.add(z3.And(evenconstraints))
+    constraints.append(z3.And(evenconstraints))
   elif options.oddsize:
-    solver.add(z3.And(oddconstraints))
+    constraints.append(z3.And(oddconstraints))
   
+  # Add all constraints found to the solver.
+  random.shuffle(constraints)
+  solver.add(constraints)
+
   # If we have a save-state file we ignore all of the above and use whatever is in there.
   # Hopefully this restarts the solving at the last point we saved it. Which is just
   # after we add a fresh blocking clause.
@@ -849,21 +855,21 @@ def generate():
     # resulting in the same shape.
     # To do we need to OR all placements that include one of the trueshards
     # and NOT AND them. 
-    if not options.saveall:
-      logger.debug('Add blocking clause for specific challenge.')
-
-      shardconstraints = []
-      for shardname in trueshardnames:
-        # Find all the placements that include this shard.
-        shard = shards[shardname]
-        # For this shard to be covered means the OR of all the placements on it is true
-        shardconstraints.append(z3.Or([ p.x for p in shard.placements ]))
-
-      # For the same shape to be produced all of these must be true, but we want
-      # the opposite.
-      blockingclause = z3.Not(z3.And(shardconstraints))
-      logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
-      solver.add(blockingclause)
+#   if not options.saveall:
+#     logger.debug('Add blocking clause for specific challenge.')
+#
+#     shardconstraints = []
+#      for shardname in trueshardnames:
+#        # Find all the placements that include this shard.
+#        shard = shards[shardname]
+#        # For this shard to be covered means the OR of all the placements on it is true
+#        shardconstraints.append(z3.Or([ p.x for p in shard.placements ]))
+#
+#      # For the same shape to be produced all of these must be true, but we want
+#      # the opposite.
+#      blockingclause = z3.Not(z3.And(shardconstraints))
+#      logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
+#      solver.add(blockingclause)
       
     # If asked for it save the state of the solver now.
     if options.savestate:
