@@ -7,3 +7,8 @@ And there are user-generated extra challenges.
 
 # What is this?
 This repository contains code produced while playing with the parts and challenges and thinking about it.
+
+# CAD models
+You can also find here FreeCAD-Models for versions of the 16 pieces of FridgeIQ suitable for 3D-printing and STL files. The FreeCAD models are fully parametrized in all aspect of their sizes.
+
+<img src="https://raw.githubusercontent.com/MarianAldenhoevel/FridgeIQ/master/doc/freecad.jpg" width="50%"/>
