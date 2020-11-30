@@ -19,3 +19,6 @@ nosession
 
 # Downloads
 z3/*
+
+# FreeCAD backup files
+*.FCStd1
