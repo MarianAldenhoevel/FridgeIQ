@@ -1,0 +1,915 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with matplotlib (https://matplotlib.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   height="360pt"
+   version="1.1"
+   viewBox="0 0 360 360"
+   width="360pt"
+   id="svg167"
+   sodipodi:docname="a53165e0a4e375129c8b5d4e0c913100-challenge.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <metadata
+     id="metadata171">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1920"
+     inkscape:window-height="1001"
+     id="namedview169"
+     showgrid="false"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:zoom="1.6833333"
+     inkscape:cx="245.94059"
+     inkscape:cy="237.69621"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg167" />
+  <defs
+     id="defs4">
+    <style
+       type="text/css"
+       id="style2">
+*{stroke-linecap:butt;stroke-linejoin:round;}
+  </style>
+    <clipPath
+       id="p9f42bba9a1">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect594" />
+    </clipPath>
+    <clipPath
+       id="clipPath2278">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2276" />
+    </clipPath>
+    <clipPath
+       id="clipPath2282">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2280" />
+    </clipPath>
+    <clipPath
+       id="clipPath2286">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2284" />
+    </clipPath>
+    <clipPath
+       id="clipPath2290">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2288" />
+    </clipPath>
+    <clipPath
+       id="clipPath2294">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2292" />
+    </clipPath>
+    <clipPath
+       id="clipPath2298">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2296" />
+    </clipPath>
+    <clipPath
+       id="clipPath2302">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2300" />
+    </clipPath>
+    <clipPath
+       id="clipPath2306">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2304" />
+    </clipPath>
+    <clipPath
+       id="clipPath2310">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2308" />
+    </clipPath>
+    <clipPath
+       id="clipPath2314">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2312" />
+    </clipPath>
+    <clipPath
+       id="clipPath2318">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2316" />
+    </clipPath>
+    <clipPath
+       id="clipPath2322">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2320" />
+    </clipPath>
+    <clipPath
+       id="clipPath2326">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2324" />
+    </clipPath>
+    <clipPath
+       id="clipPath2330">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2328" />
+    </clipPath>
+    <clipPath
+       id="clipPath2334">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2332" />
+    </clipPath>
+    <clipPath
+       id="clipPath2338">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2336" />
+    </clipPath>
+    <clipPath
+       id="clipPath2342">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2340" />
+    </clipPath>
+    <clipPath
+       id="clipPath2346">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2344" />
+    </clipPath>
+    <clipPath
+       id="clipPath2350">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2348" />
+    </clipPath>
+    <clipPath
+       id="clipPath2354">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2352" />
+    </clipPath>
+    <clipPath
+       id="clipPath2358">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2356" />
+    </clipPath>
+    <clipPath
+       id="clipPath2362">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2360" />
+    </clipPath>
+    <clipPath
+       id="clipPath2366">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2364" />
+    </clipPath>
+    <clipPath
+       id="clipPath2370">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2368" />
+    </clipPath>
+    <clipPath
+       id="clipPath2374">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2372" />
+    </clipPath>
+    <clipPath
+       id="clipPath2378">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2376" />
+    </clipPath>
+    <clipPath
+       id="clipPath2382">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2380" />
+    </clipPath>
+    <clipPath
+       id="clipPath2386">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2384" />
+    </clipPath>
+    <clipPath
+       id="clipPath2390">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2388" />
+    </clipPath>
+    <clipPath
+       id="clipPath2394">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2392" />
+    </clipPath>
+    <clipPath
+       id="clipPath2398">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2396" />
+    </clipPath>
+    <clipPath
+       id="clipPath2402">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2400" />
+    </clipPath>
+    <clipPath
+       id="clipPath2406">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2404" />
+    </clipPath>
+    <clipPath
+       id="clipPath2410">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2408" />
+    </clipPath>
+    <clipPath
+       id="clipPath2414">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2412" />
+    </clipPath>
+    <clipPath
+       id="clipPath2418">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2416" />
+    </clipPath>
+    <clipPath
+       id="clipPath2422">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2420" />
+    </clipPath>
+    <clipPath
+       id="clipPath2426">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2424" />
+    </clipPath>
+    <clipPath
+       id="clipPath2430">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2428" />
+    </clipPath>
+    <clipPath
+       id="clipPath2434">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2432" />
+    </clipPath>
+    <clipPath
+       id="clipPath2438">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2436" />
+    </clipPath>
+    <clipPath
+       id="clipPath2442">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2440" />
+    </clipPath>
+    <clipPath
+       id="clipPath2446">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2444" />
+    </clipPath>
+    <clipPath
+       id="clipPath2450">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2448" />
+    </clipPath>
+    <clipPath
+       id="clipPath2454">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2452" />
+    </clipPath>
+    <clipPath
+       id="clipPath2458">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2456" />
+    </clipPath>
+    <clipPath
+       id="clipPath2462">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2460" />
+    </clipPath>
+    <clipPath
+       id="clipPath2466">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2464" />
+    </clipPath>
+    <clipPath
+       id="clipPath2470">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2468" />
+    </clipPath>
+    <clipPath
+       id="clipPath2474">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2472" />
+    </clipPath>
+    <clipPath
+       id="clipPath2478">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2476" />
+    </clipPath>
+    <clipPath
+       id="clipPath2482">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2480" />
+    </clipPath>
+    <clipPath
+       id="clipPath2486">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2484" />
+    </clipPath>
+    <clipPath
+       id="clipPath2490">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2488" />
+    </clipPath>
+    <clipPath
+       id="clipPath2494">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2492" />
+    </clipPath>
+    <clipPath
+       id="clipPath2498">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2496" />
+    </clipPath>
+    <clipPath
+       id="clipPath2502">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2500" />
+    </clipPath>
+    <clipPath
+       id="clipPath2506">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2504" />
+    </clipPath>
+    <clipPath
+       id="clipPath2510">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2508" />
+    </clipPath>
+    <clipPath
+       id="clipPath2514">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2512" />
+    </clipPath>
+    <clipPath
+       id="clipPath2518">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2516" />
+    </clipPath>
+    <clipPath
+       id="clipPath2522">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2520" />
+    </clipPath>
+    <clipPath
+       id="clipPath2526">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2524" />
+    </clipPath>
+    <clipPath
+       id="clipPath2530">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2528" />
+    </clipPath>
+    <clipPath
+       id="clipPath2534">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2532" />
+    </clipPath>
+    <clipPath
+       id="clipPath2538">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2536" />
+    </clipPath>
+    <clipPath
+       id="clipPath2542">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2540" />
+    </clipPath>
+    <clipPath
+       id="clipPath2546">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2544" />
+    </clipPath>
+    <clipPath
+       id="clipPath2550">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2548" />
+    </clipPath>
+    <clipPath
+       id="clipPath2554">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2552" />
+    </clipPath>
+    <clipPath
+       id="clipPath2558">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2556" />
+    </clipPath>
+    <clipPath
+       id="clipPath2562">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2560" />
+    </clipPath>
+    <clipPath
+       id="clipPath2566">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2564" />
+    </clipPath>
+    <clipPath
+       id="clipPath2570">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2568" />
+    </clipPath>
+    <clipPath
+       id="clipPath2574">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2572" />
+    </clipPath>
+    <clipPath
+       id="clipPath2578">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2576" />
+    </clipPath>
+    <clipPath
+       id="clipPath2582">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2580" />
+    </clipPath>
+    <clipPath
+       id="clipPath2586">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2584" />
+    </clipPath>
+    <clipPath
+       id="clipPath2590">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2588" />
+    </clipPath>
+    <clipPath
+       id="clipPath2594">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2592" />
+    </clipPath>
+    <clipPath
+       id="clipPath2598">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2596" />
+    </clipPath>
+    <clipPath
+       id="clipPath2602">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2600" />
+    </clipPath>
+    <clipPath
+       id="clipPath2606">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2604" />
+    </clipPath>
+    <clipPath
+       id="clipPath2610">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2608" />
+    </clipPath>
+    <clipPath
+       id="clipPath2614">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2612" />
+    </clipPath>
+    <clipPath
+       id="clipPath2618">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2616" />
+    </clipPath>
+    <clipPath
+       id="clipPath2622">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2620" />
+    </clipPath>
+    <clipPath
+       id="clipPath2626">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2624" />
+    </clipPath>
+    <clipPath
+       id="clipPath2630">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2628" />
+    </clipPath>
+    <clipPath
+       id="clipPath2634">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2632" />
+    </clipPath>
+    <clipPath
+       id="clipPath2638">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2636" />
+    </clipPath>
+    <clipPath
+       id="clipPath2642">
+      <rect
+         height="277.20001"
+         width="277.20001"
+         x="45.900002"
+         y="43.200001"
+         id="rect2640" />
+    </clipPath>
+  </defs>
+  <defs
+     id="defs165">
+    <clipPath
+       id="paa4a6c353c">
+      <rect
+         height="277.2"
+         width="277.2"
+         x="45.9"
+         y="43.2"
+         id="rect162" />
+    </clipPath>
+  </defs>
+  <path
+     style="fill:#808080;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     d="M 199.80078 150 L 199.80078 173.09961 L 176.69922 173.09961 L 176.69922 288.59961 L 199.80078 288.59961 L 199.80078 311.69922 L 315.30078 311.69922 L 315.30078 288.59961 L 338.40039 288.59961 L 338.40039 173.09961 L 315.30078 173.09961 L 315.30078 150 L 199.80078 150 z M 222.90039 173.09961 L 246 173.09961 L 222.90039 196.19922 L 199.80078 219.30078 L 199.80078 196.19922 L 222.90039 196.19922 L 222.90039 173.09961 z M 269.09961 173.09961 L 292.19922 173.09961 L 292.19922 196.19922 L 315.30078 196.19922 L 315.30078 219.30078 L 292.19922 196.19922 L 269.09961 173.09961 z M 246 219.30078 L 269.09961 219.30078 L 269.09961 242.40039 L 246 242.40039 L 246 219.30078 z M 199.80078 242.40039 L 222.90039 265.5 L 246 288.59961 L 222.90039 288.59961 L 222.90039 265.5 L 199.80078 265.5 L 199.80078 242.40039 z M 315.30078 242.40039 L 315.30078 265.5 L 292.19922 265.5 L 292.19922 288.59961 L 269.09961 288.59961 L 292.19922 265.5 L 315.30078 242.40039 z "
+     transform="scale(0.75)"
+     id="path1177" />
+</svg>

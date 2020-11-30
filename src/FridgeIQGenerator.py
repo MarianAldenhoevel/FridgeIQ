@@ -2,7 +2,7 @@
 '''
 @author: Marian Aldenhövel <marian.aldenhoevel@marian-aldenhoevel.de>
 '''
-# This is a program to generate symmetric challenges_found for the FridgeIQ puzzle.
+# This is a program to generate symmetric challenges for the FridgeIQ puzzle.
 # It uses the z3 SAT/SMT solver for the heavy lifting.
 
 import random
@@ -13,12 +13,13 @@ import os
 import sys
 import time
 import copy
-import simpleaudio
+#import simpleaudio
 import datetime
 import argparse 
 import math
 import z3
 import hashlib
+import chardet
 
 from shapely.geometry.polygon import Polygon
 from shapely.geometry.point import Point
@@ -51,15 +52,27 @@ class Part:
     self.color = color
     self.placements = []
     self.shards = shards
+    self.isCopyOfPart = None
     
-    # build a list of distinct rotations
+    # build a list of distinct rotations. We always start with the part in the
+    # orientation it is designed in:
     self.rotations = [0]
     rotation_polys = [self.polygon]
-    for rotation in range(90, 360, 90):
-      test = rotate(self.polygon, rotation)
-      if not any(test.equals(poly) for poly in rotation_polys):
-        self.rotations.append(rotation)
-        rotation_polys.append(test)
+
+    # And then we rotate by 90, 180 and 270 degrees and store if the resulting
+    # polygon is geometrically different as determined by shapely.
+
+    # This is a minimal optimization and an easy win. We can keep one part 
+    # fixed and thus avoid generating solutions that are simple rotations.
+    # The part to keep fixed is hardcoded to be a big one that exists in four
+    # distinct rotations. Thus this optimization only works if that part is
+    # actually being used in the set.
+    if name != "T":
+      for rotation in range(90, 360, 90):
+        test = rotate(self.polygon, rotation)
+        if not any(test.equals(poly) for poly in rotation_polys):
+          self.rotations.append(rotation)
+          rotation_polys.append(test)
 
 # A Shard is an individual section of the field that can be covered by a part.
 # Based on the shape of the tiles four Shards are generated for each grid square.
@@ -331,6 +344,17 @@ partscatalog = [
     Part('U', Polygon([(1, 0), (2, 0), (2, 2), (1, 2), (1, 3), (0, 3), (0, 1), (1, 1), (1, 0)]), 'firebrick', ShardList().append(1, 0).append(1, 1).append(0, 1).append(0, 2))
   ]
 
+def findpartbyname(name):
+  return [x for x in partscatalog if x.name == name][0]
+
+# The parts catalog has two pairs of geometrically identical parts: E and R 
+# are the same, as are Q and B. Set up a relation for those so we can exploit
+# that in constraints to not generate solutions that simply have the pairs
+# swapped.
+findpartbyname("E").isCopyOfPart = findpartbyname("R")
+findpartbyname("Q").isCopyOfPart = findpartbyname("B")
+
+# Set up a string of all part names for use as a default commandline-switch.
 allparts = ''.join(map(lambda part: part.name, partscatalog))
 
 # Placement describes a specific part in a specific place on the field. This
@@ -343,13 +367,22 @@ class Placement:
 
   logger = logging.getLogger('Placement')
 
-  def __init__(self, part, polygon, rotation, xoffset, yoffset):
+  def __init__(self, part, polygon, rotation, xoffset, yoffset):  
+    global options
   
     self.part = part
     self.polygon = polygon
     self.rotation = rotation
     self.xoffset = xoffset
     self.yoffset = yoffset
+
+    # Calculate a simple unique index-value that includes the coordinates of the
+    # placement. We can use this to exclude solutions that are simple swaps of
+    # geometrically identical parts.
+    # Logic: 
+    # Map coordinates to integers: 0 -> 0, 1 -> 2*1-1 = 1, -1 -> 2*1 = 2, 2-> 2*4-1 = 3 ...
+    # Then YOffset gets multiplied by rowsize.
+    self.swapindex = (2*abs(xoffset) - (1 if xoffset>0 else 0)) + 3*options.horizon*(2*abs(yoffset) - (1 if yoffset>0 else 0))
 
     self.shards = part.shards.transform(xoffset, yoffset, rotation) 
 
@@ -417,6 +450,15 @@ def parse_commandline():
     metavar = 'n'
   )
 
+  parser.add_argument('-oh', '--on-horizon',
+    action = 'store',
+    default = False,
+    type = str2bool,
+    help = 'Add constraints to require at least one shard on the very edge of the horizon (default: %(default)s)',
+    dest = 'onhorizon',
+    metavar = 'flag'
+  )
+
   parser.add_argument('-pl', '--parts-list',
     action = 'store',
     default = allparts,
@@ -433,6 +475,14 @@ def parse_commandline():
     metavar = 'filename'
   )
 
+  parser.add_argument('-bc', '--blocking-clauses',
+    action = 'store',
+    default = '', # blocking-clauses.txt',
+    help = 'If specified load a list of blocking clauses from the log file (default: none)',
+    dest = 'blockingclauses',
+    metavar = 'filename'
+  )
+
   parser.add_argument('-sa', '--save-all',
     action = 'store',
     default = False,
@@ -445,7 +495,7 @@ def parse_commandline():
   parser.add_argument('-es', '--even-size',
     action = 'store',
     default = True,
-    help = 'Generate challenges_found with even sizes (default: %(default)s)',
+    help = 'Generate challenges with even sizes (default: %(default)s)',
     dest = 'evensize',
     metavar = 'flag'
   )
@@ -453,16 +503,8 @@ def parse_commandline():
   parser.add_argument('-os', '--odd-size',
     action = 'store',
     default = True,
-    help = 'Generate challenges_found with odd sizes (default: %(default)s)',
+    help = 'Generate challenges with odd sizes (default: %(default)s)',
     dest = 'oddsize',
-    metavar = 'flag'
-  )
-
-  parser.add_argument('-zp', '--z3-parallel',
-    action = 'store',
-    default = True,
-    help = 'Enable z3 parallel tactic (default: %(default)s)',
-    dest = 'z3_parallel',
     metavar = 'flag'
   )
 
@@ -508,8 +550,9 @@ def setup_logging():
   root.addHandler(fh)
   root.setLevel(logging.DEBUG)
 
-  # Silence logging from inside matplotlib
+  # Silence logging from inside imported modules
   logging.getLogger('matplotlib').setLevel(logging.INFO)
+  logging.getLogger('chardet').setLevel(logging.INFO)
 
 # Plot a playing field. challengeid is the name for the challenge and built
 # from the collection of shards covered. So it will be the same regardless
@@ -578,11 +621,11 @@ def plot(challengeid, solutionid, placements):
     ax.set_aspect(1)
     
     # If we are saving a challenge we have found a new one. Celebrate!
-    if (not solutionid):
-      challenges_found = challenges_found + 1
-      if options.playfanfare:
-        wav = simpleaudio.WaveObject.from_wave_file(os.path.dirname(os.path.realpath(__file__)) + '\\fanfare.wav')
-        wav.play()
+    #if (not solutionid):
+    #  challenges_found = challenges_found + 1
+    #  if options.playfanfare:
+    #    wav = simpleaudio.WaveObject.from_wave_file(os.path.dirname(os.path.realpath(__file__)) + '\\fanfare.wav')
+    #    wav.play()
 
     fig.savefig(figname, format = "svg")
 
@@ -597,7 +640,9 @@ def hash(string):
   m.update(string.encode("UTF-8"))
   return m.hexdigest()
 
-# Make a list of 
+# Create a constraint that declares the shard called mename must be in the same state as the
+# shard called othername. Only create one copy of the constraint, even if asked for the same
+# logic with reversed roles for "me" and "other".
 def makesymmetryconstraint(symmetryconstraints, shards, mename, me, othername):
   
   result = None
@@ -619,6 +664,7 @@ def makesymmetryconstraint(symmetryconstraints, shards, mename, me, othername):
 
   return result
 
+# Core of the work.
 def generate():
   
   global options
@@ -627,18 +673,33 @@ def generate():
 
   parts = [p for p in partscatalog if p.name in list(options.partslist)]
   area = sum(map(lambda part: part.polygon.area, parts)) 
-  logger.info('Generating challenges_found for {partcount} parts ({partslist}) with total area {area} on a horizon of {horizon} ({n}x{n} units).'.format(
+  logger.info('Generating challenges for {partcount} parts ({partslist}) with total area {area} on a horizon of {horizon} ({n}x{n} units).'.format(
     partcount = len(parts),
     partslist = options.partslist,
     area = area,
     horizon = options.horizon,
     n = 2*options.horizon)
   )
+  if options.onhorizon:
+    logger.info('Limit to challenges that use the full horizon (--on-horizon true)')
 
   # Set up a Z3 solver to accept constraints
-  z3.set_param('parallel.enable', options.z3_parallel)
-  solver = z3.Solver()
+  #z3.set_param('auto_config', False)
+  #z3.set_param('smt.phase_selection', 5)
+  #z3.set_param('sat.phase_selection', 5)
+  z3.set_param('parallel.enable', True)
+  #z3.set_param('parallel.threads.max', 32)
+  #z3.set_param('sat.local_search_threads', 3) # spawns n concurrent threads that use walk-sat to find a satisfying assignment while the main CDCL solver attempts to find either a satisfying assignment or produce an empty clause.
+  #z3.set_param('sat.threads', 3) # spawns n concurrent threads, in additional to the main thread, to find a proof of the empty clause or a satisfying assignment. The threads share learned unit literals and learned clauses.
+  #z3.set_param('sat.unit_walk_threads', 1) # spawns 1 concurrent thread that uses a local search heuristic that integrates unit propagation.
+  #z3.set_param('sat.lookahead_simplify', True) # enables the lookahead solver as a simplifier during in-processing. It enables slightly more powerful techniques for learning new units and binary clauses. 
+  #z3.set_param('sat.acce', True) 
+  #z3.set_param('sat.pb.solver', 'solver') # The pseudo-Boolean solver is enabled by setting the parameter. Other available options for compiling Pseudo-Boolean constraints are circuit, sorting, and totalizer. They compile Pseudo-Booleans into clauses. 
 
+  solver = z3.Solver()
+  #solver = z3.SolverFor('QF_FD')
+  #solver.help()
+  
   # Generate a list of all the shards that make up the square between -horizon and +horizon
   # in x- and y-direction.
   logger.debug('Splitting board into shards.')
@@ -683,7 +744,7 @@ def generate():
           # Attach this placement to the list of placements of each shard
           # the part covers at that placement.
           for shard in placement.shards.list:
-            shards[shard.name].placements.append(placement)
+            shards[shard.name].placements.append(placement)          
 
     logger.debug('Placed part {name} in {n} positions.'.format(name=part.name, n=len(part.placements)))
 
@@ -691,6 +752,28 @@ def generate():
     # the placements we determined.
     constraints.append( z3.PbEq([(x,1) for x in list(map(lambda placement: placement.x, part.placements))], 1) )
 
+  # Now we have all parts in all places. Add special constraints for parts that are duplicates. A part that
+  # has an entry in its isCopyOf-property shall only ever be placed at an index greater than that of its
+  # copy.
+  for part in parts:
+    
+    otherpart = part.isCopyOfPart
+    if otherpart:
+    
+      logger.debug('Part {name} is a copy of {othername}, create no-swap constraints from {i}x{i}={i2} placement pairs.'.format(name=part.name, othername=otherpart.name, i=len(part.placements), i2=len(part.placements)*len(part.placements)))
+      n = 0
+        
+      for placement in part.placements:
+        for otherplacement in otherpart.placements:
+          if otherplacement.swapindex < placement.swapindex:
+            # These two shall never be true at the same time. Meaning the combination of placements
+            # cannot be selected. There will be a symmetrical combination of placements that can be
+            # selected. And many others that can be selected as well.
+            constraints.append(z3.Not(z3.And(placement.x, otherplacement.x)))      
+            n += 1
+
+      logger.debug('Created {n} no-swap constraints.'.format(n=n))
+      
   # For each shard add a constraint that we want it to be covered by zero or one of the
   # parts. This removes overlap.
   logger.debug('Generating constraints to avoid overlap.')
@@ -772,8 +855,122 @@ def generate():
   elif options.oddsize:
     constraints.append(z3.And(oddconstraints))
   
+  # If selected add constraints that require at least on shard on one of the very edges to be covered. 
+  if options.onhorizon:
+    logger.debug('Generating constraints for on-horizon.')
+  
+    shardnames = []
+    for yoffset in range(-options.horizon, options.horizon + 1):
+      for direction in list("news"):
+        shardnames.append(Shard.makename(-options.horizon, yoffset, direction))
+
+    shardplacements = []
+    for shardname in shardnames:
+      # Find all the placements that include this shard.
+      shard = shards[shardname]
+      shardplacements += [ p.x for p in shard.placements ]
+    
+    # Make unique
+    shardplacements = list(set(shardplacements))
+
+    # For at least one shard on the edge to be covered OR together all of those placements
+    constraints.append( z3.Or(shardplacements) )       
+
+  # If requested load a file with blocking-clauses. Parse each into a z3 constraint and add
+  # to the list of constraints:
+  if options.blockingclauses:
+    logger.debug('Reading blocking-clauses from "{blockingclauses}".'.format(blockingclauses = options.blockingclauses))
+    blockingclausecount = 0
+    blockingclausedroppedcount = 0
+
+    # First build a dictionary of all the placement z3-vars by their name.
+    xnames = {}
+    for part in parts:
+      for placement in part.placements:
+        xnames[placement.xname] = placement.x 
+
+    # Then read the file and parse each blocking clause found into a list of z3 vars. Parsing just
+    # means extraction of the var-name and then mapping that to the actual var instance.
+
+    # Discover the file encoding.
+    with open(options.blockingclauses, "rb") as bcfile:
+      rawdata = bcfile.read(1024)
+      detect = chardet.detect(rawdata)  
+      charenc = detect['encoding']
+
+    inblockingclause = False
+    blockingclausenames = []
+  
+    with open(options.blockingclauses, "r", encoding = charenc) as bcfile:
+      for line in bcfile:
+        if line.startswith("Not(And("):
+          # A new blocking clause starts here. 
+          
+          # Construct from the data collected so far.
+          if blockingclausenames:
+            presentblockingclausenames = list(filter(lambda x: x in xnames, blockingclausenames))
+            # We only need those blocking clauses that use all the same variable names. We may have less
+            # than in the previous run because of some new optimization.
+            if (len(presentblockingclausenames) == len(blockingclausenames)):
+              constraints.append( z3.Not(z3.And( [xnames[v] for v in presentblockingclausenames] )))
+            else:
+              blockingclausedroppedcount += 1
+            blockingclausecount += 1      
+            blockingclausenames = []
+                        
+          # Strip down to variable name and store.
+          line = line.split("(",3)[2]
+          line = line.split(",",2)[0]
+          line = line.split(")",2)[0]          
+          blockingclausenames.append(line)
+
+          # Finally flag that we are in a blocking clause now.
+          inblockingclause = True
+        elif re.match(r"\w", line):
+          # This line starts with a word character. Any blocking clause ends here. 
+          
+          # Construct from the data collected so far.
+          if blockingclausenames:
+            presentblockingclausenames = list(filter(lambda x: x in xnames, blockingclausenames))
+            # We only need those blocking clauses that use all the same variable names. We may have less
+            # than in the previous run because of some new optimization.
+            if (len(presentblockingclausenames) == len(blockingclausenames)):
+              constraints.append( z3.Not(z3.And( [xnames[v] for v in presentblockingclausenames] )))
+            else:
+              blockingclausedroppedcount += 1
+            blockingclausecount += 1      
+            blockingclausenames = []
+          
+          # Finally flag as finished.
+          inblockingclause = False
+        elif inblockingclause:
+          # Continuation of blocking clause.
+
+          # Strip down to variable name and store.    
+          line = line.strip()
+          line = line.split(",",2)[0]
+          line = line.split(")",2)[0]          
+          blockingclausenames.append(line)
+        else:
+          # Not in a blocking clause and nothing interesting to see in this line,
+          # so just skip. Should not happen, really.
+          pass
+      
+    # Add the last blocking clause collected.
+    if blockingclausenames:
+      presentblockingclausenames = list(filter(lambda x: x in xnames, blockingclausenames))
+      # We only need those blocking clauses that use all the same variable names. We may have less
+      # than in the previous run because of some new optimization.
+      if (len(presentblockingclausenames) == len(blockingclausenames)):
+        constraints.append( z3.Not(z3.And( [xnames[v] for v in presentblockingclausenames] )))
+      else:
+        blockingclausedroppedcount += 1
+      blockingclausecount += 1      
+      blockingclausenames = []
+              
+    logger.debug('Read and restored {blockingclausecount} blocking-clauses. Dropped {blockingclausedroppedcount} for missing variables.'.format(blockingclausecount = blockingclausecount, blockingclausedroppedcount = blockingclausedroppedcount))
+              
   # Add all constraints found to the solver.
-  random.shuffle(constraints)
   solver.add(constraints)
 
   # If we have a save-state file we ignore all of the above and use whatever is in there.
@@ -781,12 +978,15 @@ def generate():
   # after we add a fresh blocking clause.
   # Caution: This ignores all other commandline settings so only do it if you are certain
   # that you are actually running the same problem!
+  #
+  # Note: This does not currently work, loading the state-fail always fails with an
+  #       error thrown from z3.  
   if options.savestate:
     if (os.path.isfile(options.savestate)):
       logger.warn('Reading saved state from "{savestate}"'.format(savestate = options.savestate))
       solver.reset()
       solver.from_file(options.savestate)
-      
+  
   # Now let the solver loose
   logger.info('Executing solver.')
   verdict = solver.check()
@@ -798,18 +998,15 @@ def generate():
     # Found a solution!
     solutions += 1
     logger.info('Solution #{solution}.'.format(solution = solutions))
-          
-    # Interpret model and produce output
+
+    # Log solver statistics.
+    logger.debug('Solver statistics:\n{statistics}'.format(statistics = solver.statistics()))
+    
+    # Interpret model and produce output:
     model = solver.model()
 
     # Find a list of the placements that evaluate to true in the model,
     # this is where the parts actually go in this solution.
-    #
-    # Build a canonical name for this pattern. To do this collect the names of all
-    # the shards covered by tiles. Sort that, concatenate into a long string and
-    # MD5-hash it. This becomes a fingerprint-name that identfies the pattern.
-    # We do a similar thing for the placements and get another MD5 sum. We then
-    # plot the pattern and the solution.
     trueplacements = []
     trueplacementnames = []
     trueshardnames = []
@@ -831,45 +1028,29 @@ def generate():
 
           break # There can be only one placement evaluating to true per part.
 
+    # Build a canonical name for this pattern. To do this collect the names of all
+    # the shards covered by tiles. Sort that, concatenate into a long string and
+    # MD5-hash it. This becomes a fingerprint-name that identfies the pattern.
     trueshardnames.sort()
     challengeid = hash("|".join(trueshardnames))
     
+    # Do a similar thing for the placements and get another MD5 sum.
     trueplacementnames.sort()
     solutionid = hash("|".join(trueplacementnames))
 
     # Plot the challenge and then plot the solution which may be different.
     # Within plot() there is code that finally decides on a filename and wether
-    # it needs to be generated or not. 
+    # it needs to be generated or already exists and then updates global
+    # statistics. 
     plot(challengeid, "", trueplacements)
     plot(challengeid, solutionid, trueplacements)
 
     # Add a blocking clause for this model so we can look for the next solution.
-    logger.debug('Add blocking clause for specific placement.')
+    logger.debug('Add blocking clause.')
+      
     blockingclause = z3.Not(z3.And([ p.x for p in trueplacements ]))
     logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
     solver.add(blockingclause)
-
-    # The blocking clause above will generate either a new challenge or
-    # a new solution to a known challenge. If we are not interested in all
-    # solutions we can create a blocking clause that excludes any solution
-    # resulting in the same shape.
-    # To do we need to OR all placements that include one of the trueshards
-    # and NOT AND them. 
-#   if not options.saveall:
-#     logger.debug('Add blocking clause for specific challenge.')
-#
-#     shardconstraints = []
-#      for shardname in trueshardnames:
-#        # Find all the placements that include this shard.
-#        shard = shards[shardname]
-#        # For this shard to be covered means the OR of all the placements on it is true
-#        shardconstraints.append(z3.Or([ p.x for p in shard.placements ]))
-#
-#      # For the same shape to be produced all of these must be true, but we want
-#      # the opposite.
-#      blockingclause = z3.Not(z3.And(shardconstraints))
-#      logger.debug('Blocking clause:\n{blockingclause}'.format(blockingclause = blockingclause))
-#      solver.add(blockingclause)
       
     # If asked for it save the state of the solver now.
     if options.savestate:
@@ -911,9 +1092,14 @@ def main():
   #options.horizon = 3
   #options.partslist = 'ABDEIMNYRST'
 
-  #z3.set_option('auto_config', False)
-  #z3.set_option('smt.phase_selection',5)
+  # Check a large horizon for completeness
+  #options.horizon = 6
+  #options.onhorizon = True
 
+  # Load blocking-clauses from a file
+  #options.blockingclauses = "C:\\Users\\Marian Aldenhövel\\Desktop\\FridgeIQ\\src\\generate_all_bc\\FridgeIQGenerator.log"
+  options.horizon = 6
+  
   # Call the generator
   generate()
   

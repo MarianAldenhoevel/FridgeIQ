@@ -1,17 +1,21 @@
 import z3
 
+filename = 'z3test.smt'
+
+# Make a solver with some arbitrary useless constraint
 solver = z3.Solver()
+solver.add(True)
 
-xs = [ z3.Bool("x_{i}".format(i=i)) for i in range(0,10) ]
-ys = [ z3.Bool("y_{i}".format(i=i)) for i in range(0,10) ]
+# Save to file
+smt2 = solver.sexpr()
+with open(filename, mode='w', encoding='ascii') as f: # overwrite
+    f.write(smt2)
+    f.close()
 
-solver.add(z3.Or(xs) == z3.Or(ys))
+# Load from file
+filename = 'C:\\Users\\Marian Aldenhövel\\Desktop\\FridgeIQ\\src\\generate_all\\state.smt'
 
-#solver.add(any(xs) == any(ys))
+solver.reset()
+solver.from_file(filename)
 
-#xsum = z3.Sum([z3.If(x,1,0) for x in xs])
-#ysum = z3.Sum([z3.If(x,1,0) for x in ys])
-#solver.add(xsum == ysum)
-
-solver.check()
-print(solver.model())
+print(solver)
